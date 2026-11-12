@@ -157,7 +157,7 @@ fun ProjectsScreen(vm: MainViewModel) {
                 ProjectStore.rename(ctx, p.id, name)
                 vm.projectsRev++
                 renaming = null
-            }, okEnabled = name.isNotBlank() && wTxt.isNotEmpty() && hTxt.isNotEmpty())
+            }, okEnabled = name.isNotBlank())
         }
     }
 
@@ -259,6 +259,6 @@ private fun NewProjectSheet(defaultName: String, onDismiss: () -> Unit, onCreate
         SheetButtons(tr("Cancelar", "Cancel"), onDismiss, tr("Crear", "Create"), {
             fun ev(t: String, d: Int) = ((t.toIntOrNull() ?: d).coerceIn(16, 4096) / 2) * 2
             onCreate(name, Format("custom", ev(wTxt, 1080), ev(hTxt, 1920)), fpsList[fps])
-        }, okEnabled = name.isNotBlank())
+        }, okEnabled = name.isNotBlank() && wTxt.isNotEmpty() && hTxt.isNotEmpty())
     }
 }
