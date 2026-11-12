@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -20,6 +21,8 @@ import kotlinx.coroutines.withContext
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx: Application get() = getApplication()
     val prefs = Prefs(app)
+    val editor = com.anuxi.pocketstudio.editor.EditorState(app, viewModelScope)
+    var projectsRev by mutableIntStateOf(0)
 
     // navegacion y estado general
     var screen by mutableStateOf(Screen.Home)
@@ -53,6 +56,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var infoJob: Job? = null
 
     init {
+        Lang.init(prefs)
         DownloadManager.init(app)
         // Prepara el motor en segundo plano para que la primera descarga no espere.
         viewModelScope.launch {
@@ -77,10 +81,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun back() {
+        if (screen == Screen.Editor) {
+            leaveEditor()
+            return
+        }
         screen = when (screen) {
             Screen.Video, Screen.Audio -> Screen.Downloader
             else -> Screen.Home
         }
+    }
+
+    // ---------------------------------------------------------------- editor
+
+    fun openProject(id: String) {
+        editor.open(id)
+        screen = Screen.Editor
+    }
+
+    fun leaveEditor() {
+        editor.close()
+        projectsRev++
+        screen = Screen.Projects
     }
 
     // --------------------------------------------------------------- enlace

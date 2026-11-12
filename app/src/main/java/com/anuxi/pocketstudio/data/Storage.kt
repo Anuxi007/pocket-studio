@@ -36,6 +36,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("tikwm", false)
         set(v) = sp.edit().putBoolean("tikwm", v).apply()
 
+    /** "es", "en" o null (= el idioma del telefono). */
+    var language: String?
+        get() = sp.getString("lang", null)
+        set(v) = sp.edit().putString("lang", v).apply()
+
     var folderUri: String?
         get() = sp.getString("folder_uri", null)
         set(v) = sp.edit().putString("folder_uri", v).apply()

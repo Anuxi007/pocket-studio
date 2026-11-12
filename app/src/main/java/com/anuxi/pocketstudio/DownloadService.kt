@@ -33,6 +33,7 @@ class DownloadService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         DownloadManager.init(this)
+        com.anuxi.pocketstudio.data.Lang.init(com.anuxi.pocketstudio.data.Prefs(this))
         createChannels()
         // Android exige llamar a startForeground rapido tras startForegroundService.
         startForeground(

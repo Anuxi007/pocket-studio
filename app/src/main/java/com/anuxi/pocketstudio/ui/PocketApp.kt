@@ -61,6 +61,8 @@ fun PocketApp(vm: MainViewModel) {
                         Screen.Video -> VideoScreen(vm)
                         Screen.Audio -> AudioScreen(vm)
                         Screen.Settings -> SettingsScreen(vm)
+                        Screen.Projects -> ProjectsScreen(vm)
+                        Screen.Editor -> EditorScreen(vm)
                     }
                 }
             }

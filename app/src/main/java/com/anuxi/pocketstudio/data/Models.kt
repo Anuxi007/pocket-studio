@@ -2,7 +2,7 @@ package com.anuxi.pocketstudio.data
 
 import java.util.Locale
 
-enum class Screen { Home, Downloader, Video, Audio, Settings }
+enum class Screen { Home, Downloader, Video, Audio, Settings, Projects, Editor }
 
 /** Un formato tal como lo reporta yt-dlp. */
 data class Fmt(

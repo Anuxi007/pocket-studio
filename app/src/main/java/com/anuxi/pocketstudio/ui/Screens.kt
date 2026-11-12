@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.anuxi.pocketstudio.BuildConfig
 import com.anuxi.pocketstudio.MainViewModel
+import com.anuxi.pocketstudio.data.tr
 import com.anuxi.pocketstudio.R
 import com.anuxi.pocketstudio.data.*
 
@@ -46,13 +47,13 @@ private val CardShape = RoundedCornerShape(20.dp)
 fun HomeScreen(vm: MainViewModel) {
     Column(Modifier.fillMaxSize().padding(bottom = 24.dp)) {
         ScreenHeader("Pocket Studio", trailing = {
-            RoundIconButton(Icons.Filled.Settings, "Opciones") { vm.go(Screen.Settings) }
+            RoundIconButton(Icons.Filled.Settings, tr("Opciones", "Settings")) { vm.go(Screen.Settings) }
         })
         Column(
             Modifier.weight(1f),
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("¿Qué quieres hacer hoy?", color = Ps.Muted, fontSize = 15.sp)
+            Text(tr("¿Qué quieres hacer hoy?", "What do you want to do today?"), color = Ps.Muted, fontSize = 15.sp)
             Spacer(Modifier.height(16.dp))
 
             Row(
@@ -72,7 +73,7 @@ fun HomeScreen(vm: MainViewModel) {
                 Column(Modifier.weight(1f)) {
                     Text("Downloader", color = Ps.OnMint, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Descarga video o audio con un enlace",
+                        tr("Descarga video o audio con un enlace", "Download video or audio with a link"),
                         color = Ps.OnMint.copy(alpha = 0.78f),
                         fontSize = 14.sp,
                     )
@@ -87,6 +88,7 @@ fun HomeScreen(vm: MainViewModel) {
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
                     .border(BorderStroke(1.5.dp, Ps.Line), RoundedCornerShape(24.dp))
+                    .pressable { vm.go(Screen.Projects) }
                     .padding(20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -96,13 +98,14 @@ fun HomeScreen(vm: MainViewModel) {
                 ) { PsIcon(R.drawable.ic_scissors, Ps.Muted, 26.dp) }
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Editor", color = Color(0xFFD6D8F2), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text("Próximamente", color = Ps.Muted, fontSize = 14.sp)
+                    Text(tr("Editor", "Editor"), color = Color(0xFFD6D8F2), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(tr("Capas, keyframes y velocidad", "Layers, keyframes and speed"), color = Ps.Muted, fontSize = 14.sp)
                 }
+                PsIcon(Icons.Filled.KeyboardArrowRight, Ps.Muted)
             }
         }
         Text(
-            "Úsala solo con contenido propio, libre o con permiso.",
+            tr("Úsala solo con contenido propio, libre o con permiso.", "Use it only with your own content, free content or with permission."),
             color = Ps.Muted2,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
@@ -537,7 +540,24 @@ fun SettingsScreen(vm: MainViewModel) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        ScreenHeader("Opciones", onBack = vm::back)
+        ScreenHeader(tr("Opciones", "Settings"), onBack = vm::back)
+
+        // --- idioma
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionLabel("Idioma / Language")
+            SettingsCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SegControl(listOf("Español", "English"), if (Lang.english) 1 else 0, Violet) { Lang.set(it == 1) }
+                    Text(
+                        tr(
+                            "Cambia al instante, sin reiniciar la app.",
+                            "Changes instantly, no need to restart the app.",
+                        ),
+                        color = Ps.Muted2, fontSize = 12.sp,
+                    )
+                }
+            }
+        }
 
         // --- yt-dlp
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
