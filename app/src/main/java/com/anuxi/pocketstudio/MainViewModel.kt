@@ -45,6 +45,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // actualizaciones
     var apkUpdate by mutableStateOf<ApkUpdateState>(ApkUpdateState.Idle)
+    var apkInstallNote by mutableStateOf<String?>(null)
     var ytVersion by mutableStateOf<String?>(null)
     var ytStatus by mutableStateOf<String?>(null)
     var ytBusy by mutableStateOf(false)
@@ -264,6 +265,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } finally {
                 ytBusy = false
             }
+        }
+    }
+
+    fun downloadApk(version: String, url: String) {
+        apkUpdate = ApkUpdateState.Downloading(version, 0f)
+        viewModelScope.launch {
+            apkUpdate = try {
+                ApkUpdater.download(ctx, url) { p -> apkUpdate = ApkUpdateState.Downloading(version, p) }
+                ApkUpdateState.ReadyToInstall(version)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ApkUpdateState.Failed("No se pudo descargar la actualización: ${e.message ?: "error de red"}")
+            }
+            if (apkUpdate is ApkUpdateState.ReadyToInstall) installApk(version)
+        }
+    }
+
+    fun installApk(version: String) {
+        try {
+            if (!ApkUpdater.install(ctx)) {
+                apkUpdate = ApkUpdateState.ReadyToInstall(version)
+                apkInstallNote = "Activa \"Permitir desde esta fuente\" para Pocket Studio y vuelve a tocar Instalar."
+            } else {
+                apkInstallNote = null
+            }
+        } catch (e: Exception) {
+            apkUpdate = ApkUpdateState.Failed("No se pudo abrir el instalador: ${e.message ?: "error desconocido"}")
         }
     }
 

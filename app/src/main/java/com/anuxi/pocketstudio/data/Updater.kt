@@ -1,6 +1,14 @@
 package com.anuxi.pocketstudio.data
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
+import androidx.core.content.FileProvider
+import kotlinx.coroutines.ensureActive
+import java.io.File
+import kotlin.coroutines.coroutineContext
 import com.anuxi.pocketstudio.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,6 +69,64 @@ object ApkUpdater {
         } catch (e: Exception) {
             ApkUpdateState.Failed("No se pudo comprobar: ${e.message ?: "error de red"}")
         }
+    }
+
+    private fun apkFile(context: Context) = File(context.cacheDir, "updates/PocketStudio.apk")
+
+    /** Baja el APK a la carpeta temporal de la app. Lanza una excepcion con un mensaje claro si falla. */
+    suspend fun download(context: Context, url: String, onProgress: (Float) -> Unit) =
+        withContext(Dispatchers.IO) {
+            val file = apkFile(context)
+            file.parentFile?.mkdirs()
+            file.delete()
+            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15000
+                readTimeout = 30000
+                setRequestProperty("User-Agent", "PocketStudio/${BuildConfig.VERSION_NAME}")
+            }
+            val code = conn.responseCode
+            if (code !in 200..299) throw IllegalStateException("GitHub respondió con el código $code al bajar el APK.")
+            val total = conn.contentLengthLong
+            conn.inputStream.use { input ->
+                file.outputStream().use { out ->
+                    val buf = ByteArray(64 * 1024)
+                    var done = 0L
+                    var last = -1
+                    while (true) {
+                        coroutineContext.ensureActive()
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        out.write(buf, 0, n)
+                        done += n
+                        if (total > 0) {
+                            val pct = (done * 100 / total).toInt()
+                            if (pct != last) { last = pct; onProgress(pct / 100f) }
+                        }
+                    }
+                }
+            }
+            if (file.length() < 1_000_000) throw IllegalStateException("El archivo descargado parece incompleto.")
+        }
+
+    /**
+     * Abre el instalador de Android. Devuelve false si falta el permiso de
+     * "instalar apps desconocidas": en ese caso abre la pantalla donde se activa.
+     */
+    fun install(context: Context): Boolean {
+        if (!context.packageManager.canRequestPackageInstalls()) {
+            context.startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            return false
+        }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile(context))
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+        return true
     }
 
     private fun pickApk(apks: List<Pair<String, String>>): String? {

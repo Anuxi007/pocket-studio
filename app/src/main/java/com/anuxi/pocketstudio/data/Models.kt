@@ -92,6 +92,8 @@ sealed interface ApkUpdateState {
     data object Checking : ApkUpdateState
     data class UpToDate(val version: String) : ApkUpdateState
     data class Available(val version: String, val notes: String, val url: String) : ApkUpdateState
+    data class Downloading(val version: String, val progress: Float) : ApkUpdateState
+    data class ReadyToInstall(val version: String) : ApkUpdateState
     data class Failed(val message: String) : ApkUpdateState
 }
 

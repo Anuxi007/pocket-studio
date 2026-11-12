@@ -601,13 +601,48 @@ fun SettingsScreen(vm: MainViewModel) {
                     ) {
                         Text("Hay una versión nueva: ${u.version}", color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         if (u.notes.isNotEmpty()) Text(u.notes, color = Ps.Muted, fontSize = 13.sp, lineHeight = 19.sp)
-                        Text(
-                            "Se abrirá GitHub para descargar el APK. Luego ábrelo para instalar la actualización.",
-                            color = Ps.Muted2, fontSize = 12.sp, lineHeight = 18.sp,
-                        )
-                        SmallButton("Descargar ${u.version}") {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url)))
+                        if (u.url.endsWith(".apk")) {
+                            Text(
+                                "Se descarga dentro de la app y luego Android te pedirá confirmar la instalación.",
+                                color = Ps.Muted2, fontSize = 12.sp, lineHeight = 18.sp,
+                            )
+                            SmallButton("Descargar e instalar ${u.version}") { vm.downloadApk(u.version, u.url) }
+                        } else {
+                            Text(
+                                "Se abrirá GitHub para descargar el APK. Luego ábrelo para instalar la actualización.",
+                                color = Ps.Muted2, fontSize = 12.sp, lineHeight = 18.sp,
+                            )
+                            SmallButton("Abrir GitHub") {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url)))
+                            }
                         }
+                    }
+
+                    is ApkUpdateState.Downloading -> Column(
+                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            "Descargando ${u.version}… ${(u.progress * 100).toInt()} %",
+                            color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                        LinearProgressIndicator(
+                            progress = u.progress.coerceIn(0f, 1f),
+                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                            color = Ps.Mint,
+                            trackColor = Ps.CardStrong,
+                        )
+                    }
+
+                    is ApkUpdateState.ReadyToInstall -> Column(
+                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text("Lista para instalar: ${u.version}", color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        vm.apkInstallNote?.let {
+                            Text(it, color = Ps.Amber, fontSize = 13.sp, lineHeight = 19.sp)
+                        }
+                        SmallButton("Instalar") { vm.installApk(u.version) }
                     }
                 }
             }

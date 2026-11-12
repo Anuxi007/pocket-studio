@@ -2,7 +2,7 @@
 
 App gratuita y de código abierto para Android: descarga video o audio a partir de un enlace y, más adelante, edítalo.
 
-> **Versión alpha 0.0.5.** Puede tener errores. Úsala solo con contenido propio, libre o con permiso.
+> **Versión alpha 0.0.6.** Puede tener errores. Úsala solo con contenido propio, libre o con permiso.
 
 ## Qué hace
 
@@ -13,7 +13,7 @@ App gratuita y de código abierto para Android: descarga video o audio a partir 
 - **Descargas:** pestaña con cola, historial, pausa y reanudar, cancelar, descargas en segundo plano con notificación, aviso de enlace repetido, abrir con el reproductor que elijas, compartir y eliminar uno o varios archivos.
 - **Errores honestos:** explica qué falló (video privado, sin conexión, página cambió, etc.) y muestra los detalles técnicos para reportarlos.
 - **Carpeta de descargas:** `Download/Pocket Studio` por defecto, o la que elijas (la app la recuerda). También puedes elegir otra carpeta solo para una descarga.
-- **Actualizaciones:** en *Opciones* puedes actualizar yt-dlp y buscar nuevas versiones de la app en los [Releases](../../releases) de este repositorio.
+- **Actualizaciones:** en *Opciones* puedes actualizar yt-dlp y buscar nuevas versiones de la app (se descargan e instalan desde la propia app) en los [Releases](../../releases) de este repositorio. Requiere que el repositorio sea público.
 
 ## Instalar
 
