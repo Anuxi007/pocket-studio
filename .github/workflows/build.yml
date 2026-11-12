@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: "Versión a publicar en Releases (ejemplo: 0.0.1). Déjalo vacío para solo compilar."
+        description: "Versión a publicar en Releases (ejemplo: 0.0.1). Déjalo vacío para usar la de build.gradle.kts."
         required: false
         default: ""
 
@@ -46,14 +46,40 @@ jobs:
           echo "PS_KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> "$GITHUB_ENV"
           echo "PS_KEY_PASS=${{ secrets.KEY_PASS }}" >> "$GITHUB_ENV"
 
+      # Decide si esta ejecución publica un release: al subir a la rama principal,
+      # al subir una etiqueta v*, o al lanzar el flujo a mano.
+      - name: Preparar versión
+        id: ver
+        env:
+          INPUT_VERSION: ${{ inputs.release_version }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          RELEASE=false
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG="$GITHUB_REF_NAME"; RELEASE=true
+          elif [ -n "$INPUT_VERSION" ]; then
+            TAG="v$INPUT_VERSION"; RELEASE=true
+          else
+            TAG="v$VERSION"
+            if [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then RELEASE=true; fi
+          fi
+          PRE=false
+          case "$VERSION" in 0.*) PRE=true;; esac
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRE" >> "$GITHUB_OUTPUT"
+
       - name: Compilar
         run: gradle assembleRelease --stacktrace --no-daemon
 
       - name: Renombrar APKs
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+          RELEASE: ${{ steps.ver.outputs.release }}
         run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME}";
-          elif [ -n "${{ inputs.release_version }}" ]; then V="v${{ inputs.release_version }}";
-          else V="dev-${GITHUB_SHA::7}"; fi
+          if [ "$RELEASE" = "true" ]; then V="$TAG"; else V="dev-${GITHUB_SHA::7}"; fi
           mkdir -p dist
           for f in app/build/outputs/apk/release/*.apk; do
             abi=$(basename "$f" | sed -E 's/^app-(.*)-release.*\.apk$/\1/')
@@ -66,12 +92,14 @@ jobs:
           name: PocketStudio-apks
           path: dist/*.apk
 
+      # El release lo crea el propio flujo con su GITHUB_TOKEN (permissions: contents: write).
       - name: Publicar en Releases
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_version != ''
+        if: steps.ver.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', inputs.release_version) }}
+          tag_name: ${{ steps.ver.outputs.tag }}
           target_commitish: ${{ github.sha }}
+          name: Pocket Studio ${{ steps.ver.outputs.version }}
+          prerelease: ${{ steps.ver.outputs.prerelease == 'true' }}
           files: dist/*.apk
-          prerelease: true
           generate_release_notes: true

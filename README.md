@@ -27,12 +27,11 @@ Pocket Studio no incluye ni distribuye contenido. Descargar contenido protegido 
 
 ## Compilar
 
-Cada subida a GitHub compila el APK con GitHub Actions (los APK quedan como *artifact* de cada ejecución). Para publicar una versión en Releases, de cualquiera de estas dos formas:
+Cada subida a GitHub compila el APK con GitHub Actions (los APK quedan como *artifact* de cada ejecución).
 
-- **Desde GitHub:** pestaña *Actions* → *Build APK* → *Run workflow* → escribe la versión (por ejemplo `0.0.1`) → *Run workflow*.
-- **Con una etiqueta:** `git tag v0.0.2 && git push origin v0.0.2`.
+Al subir a la rama principal, el propio flujo publica (o actualiza) el release `v<versionName>`, usando el `versionName` de `app/build.gradle.kts`, con los APK adjuntos. Las versiones `0.x` se marcan como *pre-release*. Para sacar una versión nueva basta con subir el `versionName` y hacer push.
 
-El flujo crea un *pre-release* con los APK adjuntos. Para compilar en tu computadora necesitas Android Studio (o JDK 17 + Android SDK + Gradle 8.9) y ejecutar `gradle assembleRelease`.
+También se puede publicar a mano: pestaña *Actions* → *Build APK* → *Run workflow*. Para compilar en tu computadora necesitas Android Studio (o JDK 17 + Android SDK + Gradle 8.9) y ejecutar `gradle assembleRelease`.
 
 ### Firma de la alpha
 
