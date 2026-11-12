@@ -604,7 +604,7 @@ fun SettingsScreen(vm: MainViewModel) {
                     Text("Reducir animaciones", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                     Switch(
                         checked = vm.reduceMotion,
-                        onCheckedChange = vm::setReduceMotion,
+                        onCheckedChange = vm::changeReduceMotion,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Ps.OnMint,
                             checkedTrackColor = Ps.Mint,

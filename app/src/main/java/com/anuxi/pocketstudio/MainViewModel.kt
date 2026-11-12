@@ -212,7 +212,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         welcomeAccepted = true
     }
 
-    fun setReduceMotion(v: Boolean) {
+    fun changeReduceMotion(v: Boolean) {
         prefs.reduceMotion = v
         reduceMotion = v
     }
