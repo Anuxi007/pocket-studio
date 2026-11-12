@@ -638,6 +638,35 @@ fun SettingsScreen(vm: MainViewModel) {
             }
         }
 
+        // --- TikTok (motor alternativo)
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionLabel("TikTok")
+            SettingsCard {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                        Text("Motor alternativo (TikWM)", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        Text("Descarga el original en mejor calidad", color = Ps.Muted, fontSize = 13.sp)
+                    }
+                    Switch(
+                        checked = vm.tikwmEnabled,
+                        onCheckedChange = vm::changeTikwm,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Ps.OnMint,
+                            checkedTrackColor = Ps.Mint,
+                            uncheckedThumbColor = Ps.Muted,
+                            uncheckedTrackColor = Ps.CardStrong,
+                        ),
+                    )
+                }
+                Text(
+                    "Si lo activas, el enlace de cada video de TikTok se envía a tikwm.com, un servicio de terceros " +
+                        "no oficial que puede fallar o cambiar. Si falla, verás el motivo. Al pausar, esa descarga empieza de nuevo.",
+                    color = Ps.Amber, fontSize = 12.sp, lineHeight = 18.sp,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+                )
+            }
+        }
+
         // --- cola e historial
         var confirmHistory by remember { mutableStateOf(false) }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

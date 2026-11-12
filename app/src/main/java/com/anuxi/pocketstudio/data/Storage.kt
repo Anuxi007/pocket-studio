@@ -31,6 +31,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("ask_player", true)
         set(v) = sp.edit().putBoolean("ask_player", v).apply()
 
+    /** Motor alternativo para TikTok (TikWM). Apagado por defecto: envia el enlace a un tercero. */
+    var tikwmEnabled: Boolean
+        get() = sp.getBoolean("tikwm", false)
+        set(v) = sp.edit().putBoolean("tikwm", v).apply()
+
     var folderUri: String?
         get() = sp.getString("folder_uri", null)
         set(v) = sp.edit().putString("folder_uri", v).apply()

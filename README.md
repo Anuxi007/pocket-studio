@@ -2,7 +2,7 @@
 
 App gratuita y de código abierto para Android: descarga video o audio a partir de un enlace y, más adelante, edítalo.
 
-> **Versión alpha 0.0.3.** Puede tener errores. Úsala solo con contenido propio, libre o con permiso.
+> **Versión alpha 0.0.4.** Puede tener errores. Úsala solo con contenido propio, libre o con permiso.
 
 ## Qué hace
 

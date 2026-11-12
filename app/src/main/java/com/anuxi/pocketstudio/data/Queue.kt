@@ -283,7 +283,9 @@ object DownloadManager {
             var item = get(id) ?: return
             if (item.kind == "quick") item = resolveQuick(item)
             var lastPct = -2
-            val saved = Ytdlp.download(app, item) { progress, eta ->
+            val useTikwm = Prefs(app).tikwmEnabled && Tikwm.isTiktok(item.url)
+            if (useTikwm) update(id) { it.copy(label = "Original · TikWM") }
+            val onProg: (Float, Long) -> Unit = { progress, eta ->
                 val pct = progress.toInt()
                 if (pct != lastPct) {
                     lastPct = pct
@@ -291,6 +293,7 @@ object DownloadManager {
                     update(id) { it.copy(progress = progress.coerceIn(0f, 100f), infoText = text) }
                 }
             }
+            val saved = if (useTikwm) Tikwm.download(app, item, onProg) else Ytdlp.download(app, item, onProg)
             update(id) {
                 it.copy(
                     status = ItemStatus.Done, progress = 100f, infoText = "",
@@ -305,8 +308,11 @@ object DownloadManager {
         } catch (e: Exception) {
             val flag = synchronized(lock) { stopping[id] }
             if (flag == null) {
-                val err = Errors.classify(e.message ?: e.toString())
-                update(id) { it.copy(status = ItemStatus.Failed, infoText = "", error = err.title + ": " + err.text) }
+                val msg = if (e is TikwmException) e.message ?: "Error de TikWM" else {
+                    val err = Errors.classify(e.message ?: e.toString())
+                    err.title + ": " + err.text
+                }
+                update(id) { it.copy(status = ItemStatus.Failed, infoText = "", error = msg) }
             }
         } finally {
             synchronized(lock) {

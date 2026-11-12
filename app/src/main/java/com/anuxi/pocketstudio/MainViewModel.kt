@@ -40,6 +40,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var pendingFolderLabel by mutableStateOf<String?>(null)
     var maxParallel by mutableStateOf(prefs.maxParallel)
     var askPlayer by mutableStateOf(prefs.askPlayer)
+    var tikwmEnabled by mutableStateOf(prefs.tikwmEnabled)
     var askNotifications: (() -> Unit)? = null
 
     // actualizaciones
@@ -191,6 +192,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun changeMaxParallel(n: Int) {
         prefs.maxParallel = n
         maxParallel = prefs.maxParallel
+    }
+
+    fun changeTikwm(v: Boolean) {
+        prefs.tikwmEnabled = v
+        tikwmEnabled = v
     }
 
     fun changeAskPlayer(v: Boolean) {
