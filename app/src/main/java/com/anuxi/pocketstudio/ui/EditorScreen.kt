@@ -13,6 +13,14 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.positionChange
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -239,6 +247,7 @@ private fun RenameSheet(current: String, onDismiss: () -> Unit, onSave: (String)
 @Composable
 private fun Preview(ed: EditorState, onSettings: () -> Unit) {
     val p = ed.project ?: return
+    @Suppress("UNUSED_EXPRESSION") ed.rev
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val ratio = p.width.toFloat() / p.height
         val maxW = maxWidth
@@ -251,6 +260,13 @@ private fun Preview(ed: EditorState, onSettings: () -> Unit) {
             Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = 0xFF6FA8FF.toInt() }
         }
         Box(Modifier.size(w, h)) {
+            val wPx = with(LocalDensity.current) { w.toPx() }
+            val hPx = with(LocalDensity.current) { h.toPx() }
+            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(Color(p.bg))) {
+                p.layers.filter { it.kind == LayerKind.Video && !it.missing }.forEach { l ->
+                    key(l.id) { LayerSurface(ed, l, wPx, hPx) }
+                }
+            }
             Canvas(
                 Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp))
                     .pointerInput(Unit) {
@@ -276,26 +292,6 @@ private fun Preview(ed: EditorState, onSettings: () -> Unit) {
                 @Suppress("UNUSED_EXPRESSION") ed.rev
                 val t = ed.playhead
                 val s = size.width / p.width
-                drawRect(Color(p.bg))
-                drawIntoCanvas { c ->
-                    val nc = c.nativeCanvas
-                    val am = android.graphics.Matrix()
-                    p.layers.forEach { l ->
-                        if (t < l.start - 1e-3f || t > l.end + 1e-3f) return@forEach
-                        val m = p.worldMatrix(l, t)
-                        am.setValues(floatArrayOf(m.a, m.c, m.e, m.b, m.d, m.f, 0f, 0f, 1f))
-                        if (l.kind == LayerKind.Video) {
-                            val bmp = ed.frames[l.id] ?: return@forEach
-                            paint.alpha = (p.alpha(l, t) * 255).toInt()
-                            nc.save()
-                            nc.scale(s, s)
-                            nc.concat(am)
-                            nc.scale(l.srcW / bmp.width.toFloat(), l.srcH / bmp.height.toFloat())
-                            nc.drawBitmap(bmp, 0f, 0f, paint)
-                            nc.restore()
-                        }
-                    }
-                }
                 // contornos de la capa elegida y los nulos
                 p.layers.forEach { l ->
                     if (t < l.start - 1e-3f || t > l.end + 1e-3f) return@forEach
@@ -339,6 +335,50 @@ private fun Preview(ed: EditorState, onSettings: () -> Unit) {
             }
         }
     }
+}
+
+/** Una capa de video: su TextureView recibe el decodificador y se coloca con la matriz de la capa. */
+@Composable
+private fun LayerSurface(ed: EditorState, l: Layer, wPx: Float, hPx: Float) {
+    val p = ed.project ?: return
+    @Suppress("UNUSED_EXPRESSION") ed.rev
+    val t = ed.playhead
+    val inRange = t >= l.start - 1e-3f && t <= l.end + 1e-3f
+    val a = if (inRange) p.alpha(l, t).coerceIn(0f, 1f) else 0f
+    val m = p.worldMatrix(l, t)
+    val s = wPx / p.width
+    androidx.compose.ui.viewinterop.AndroidView(
+        factory = { ctx ->
+            android.view.TextureView(ctx).apply {
+                surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
+                    var surf: android.view.Surface? = null
+                    override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) {
+                        val sf = android.view.Surface(st)
+                        surf = sf
+                        ed.attachSurface(l.id, sf)
+                    }
+                    override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
+                    override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean {
+                        ed.detachSurface(l.id)
+                        surf?.release(); surf = null
+                        return true
+                    }
+                    override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
+                }
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+        update = { tv ->
+            tv.alpha = a
+            val am = android.graphics.Matrix()
+            am.setValues(floatArrayOf(m.a, m.c, m.e, m.b, m.d, m.f, 0f, 0f, 1f))
+            val mat = android.graphics.Matrix()
+            mat.setScale(s, s)
+            mat.preConcat(am)
+            mat.preScale(l.srcW / wPx, l.srcH / hPx)
+            tv.setTransform(mat)
+        },
+    )
 }
 
 // ============================================================= REPRODUCCION
@@ -390,6 +430,7 @@ private fun Timeline(
     val scroll = rememberScrollState()
     val vScroll = rememberScrollState()
     val scope = rememberCoroutineScope()
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     var viewportPx by remember { mutableIntStateOf(0) }
     val pps = ed.pxPerSec
     val labelW = 108.dp
@@ -449,10 +490,105 @@ private fun Timeline(
         // y pellizcar hace zoom. Los clips los consumen solo al mantener apretado o en sus manijas.
         Box(
             Modifier.fillMaxWidth().weight(1f).pointerInput(Unit) {
-                detectTransformGestures { centroid, pan, zoom, _ ->
-                    if (abs(zoom - 1f) > 0.003f) zoomBy(zoom, scroll.value + centroid.x - labelW.toPx())
-                    scroll.dispatchRawDelta(-pan.x)
-                    vScroll.dispatchRawDelta(-pan.y)
+                val slop = viewConfiguration.touchSlop
+                val labelPx = labelW.toPx()
+                val rulerPx = rulerH.toPx()
+                val rowPx = rowH.toPx()
+                val gapPx = 5.dp.toPx()
+                val edgeOut = 8.dp.toPx()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val proj = ed.project ?: return@awaitEachGesture
+                    val yC = down.position.y + vScroll.value
+                    // la regla tiene sus propios gestos
+                    if (yC < rulerPx && down.position.x >= labelPx) return@awaitEachGesture
+                    val pps = ed.pxPerSec
+                    val pxs = pps * density
+                    val tol = 10f / pps
+                    val rows = proj.layers.asReversed()
+                    val rel = yC - rulerPx - gapPx
+                    val r = if (rel < 0f) -1 else (rel / (rowPx + gapPx)).toInt()
+                    val inRow = r in rows.indices && rel - r * (rowPx + gapPx) <= rowPx
+                    val layer = if (down.position.x >= labelPx && inRow) rows[r] else null
+                    val cx = down.position.x - labelPx + scroll.value
+
+                    // 1) manijas de recorte (solo con el clip elegido)
+                    if (layer != null && layer.id == ed.selected) {
+                        val sx = layer.start * pxs
+                        val ex = layer.end * pxs
+                        val hw = min(26.dp.toPx(), (ex - sx) / 3f)
+                        val nearStart = cx >= sx - edgeOut && cx <= sx + hw
+                        val nearEnd = cx >= ex - hw && cx <= ex + edgeOut
+                        if (nearStart || nearEnd) {
+                            val atStart = if (nearStart && nearEnd) abs(cx - sx) <= abs(cx - ex) else nearStart
+                            down.consume()
+                            var raw = if (atStart) layer.start else layer.end
+                            while (true) {
+                                val ev = awaitPointerEvent()
+                                val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!ch.pressed) break
+                                val dx = ch.positionChange().x
+                                if (dx != 0f) {
+                                    raw += dx / density / ed.pxPerSec
+                                    if (atStart) ed.trimStart(layer.id, raw, tol) else ed.trimEnd(layer.id, raw, tol)
+                                }
+                                ch.consume()
+                            }
+                            return@awaitEachGesture
+                        }
+                    }
+
+                    // 2) toque, mantener o arrastre
+                    val onBody = layer != null && cx >= layer.start * pxs && cx <= layer.end * pxs
+                    var total = Offset.Zero
+                    val phase = withTimeoutOrNull(if (onBody) viewConfiguration.longPressTimeoutMillis else Long.MAX_VALUE) {
+                        var out = 0
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            if (ev.changes.size > 1) { out = 2; break }
+                            val ch = ev.changes.first()
+                            if (!ch.pressed) { out = 1; break }
+                            total += ch.positionChange()
+                            if (total.getDistance() > slop) { out = 2; break }
+                        }
+                        out
+                    }
+                    when (phase) {
+                        1 -> { if (layer != null && onBody) ed.selected = layer.id; return@awaitEachGesture }
+                        null -> {
+                            // mantener apretado: mover el clip
+                            val l = layer ?: return@awaitEachGesture
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            ed.selected = l.id
+                            var raw = l.start
+                            while (true) {
+                                val ev = awaitPointerEvent()
+                                val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!ch.pressed) break
+                                val dx = ch.positionChange().x
+                                if (dx != 0f) {
+                                    raw += dx / density / ed.pxPerSec
+                                    ed.moveLayer(l.id, raw, tol)
+                                }
+                                ch.consume()
+                            }
+                            return@awaitEachGesture
+                        }
+                    }
+
+                    // 3) arrastre libre: mueve la linea de tiempo; dos dedos hacen zoom
+                    scroll.dispatchRawDelta(-total.x)
+                    vScroll.dispatchRawDelta(-total.y)
+                    while (true) {
+                        val ev = awaitPointerEvent()
+                        if (ev.changes.none { it.pressed }) break
+                        val pan = ev.calculatePan()
+                        val zoom = ev.calculateZoom()
+                        if (abs(zoom - 1f) > 0.003f) zoomBy(zoom, scroll.value + ev.calculateCentroid().x - labelPx)
+                        scroll.dispatchRawDelta(-pan.x)
+                        vScroll.dispatchRawDelta(-pan.y)
+                        ev.changes.forEach { it.consume() }
+                    }
                 }
             },
         ) {
@@ -588,18 +724,7 @@ private fun ClipRow(ed: EditorState, l: Layer, pps: Float, density: Float, rowH:
             Modifier.offset(x = (l.start * pps).dp).width(w).fillMaxHeight().padding(vertical = 3.dp)
                 .clip(RoundedCornerShape(7.dp)).background(if (l.missing) Color(0x66FF8A8A) else color)
                 .then(if (sel) Modifier.border(2.dp, SkyBlue, RoundedCornerShape(7.dp)) else Modifier)
-                .pointerInput(l.id) { detectTapGestures { ed.selected = l.id } }
-                .pointerInput(l.id, pps) {
-                    var raw = 0f
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { raw = l.start; ed.selected = l.id },
-                        onDrag = { c, d ->
-                            c.consume()
-                            raw += d.x / density / pps
-                            ed.moveLayer(l.id, raw, tolSec)
-                        },
-                    )
-                },
+                ,
             contentAlignment = Alignment.CenterStart,
         ) {
             Text(
@@ -610,29 +735,15 @@ private fun ClipRow(ed: EditorState, l: Layer, pps: Float, density: Float, rowH:
             if (l.kind == LayerKind.Video && l.speed.animated) {
                 Text("⏱", fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 14.dp))
             }
-            // manijas para recortar
-            Box(
-                Modifier.align(Alignment.CenterStart).width(14.dp).fillMaxHeight()
-                    .then(if (!sel) Modifier else Modifier.pointerInput(l.id, pps) {
-                        var raw = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = { raw = l.start; ed.selected = l.id },
-                            onHorizontalDrag = { c, dx -> c.consume(); raw += dx / density / pps; ed.trimStart(l.id, raw, tolSec) },
-                        )
-                    }),
-                contentAlignment = Alignment.Center,
-            ) { if (sel) Box(Modifier.size(3.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(Color.White)) }
-            Box(
-                Modifier.align(Alignment.CenterEnd).width(14.dp).fillMaxHeight()
-                    .then(if (!sel) Modifier else Modifier.pointerInput(l.id, pps) {
-                        var raw = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = { raw = l.end; ed.selected = l.id },
-                            onHorizontalDrag = { c, dx -> c.consume(); raw += dx / density / pps; ed.trimEnd(l.id, raw, tolSec) },
-                        )
-                    }),
-                contentAlignment = Alignment.Center,
-            ) { if (sel) Box(Modifier.size(3.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(Color.White)) }
+            // manijas para recortar: solo se ven con el clip elegido (los gestos los maneja la linea de tiempo)
+            if (sel) {
+                Box(Modifier.align(Alignment.CenterStart).width(14.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(3.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(Color.White))
+                }
+                Box(Modifier.align(Alignment.CenterEnd).width(14.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(3.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(Color.White))
+                }
+            }
         }
     }
 }
