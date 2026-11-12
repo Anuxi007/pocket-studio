@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.anuxi.pocketstudio.data.DownloadManager
 import com.anuxi.pocketstudio.data.Prefs
 import com.anuxi.pocketstudio.data.Ytdlp
 import com.anuxi.pocketstudio.ui.PocketTheme
@@ -46,10 +47,13 @@ class ShareActivity : ComponentActivity() {
             openApp()
             return
         }
+        DownloadManager.init(this)
+        val duplicate = DownloadManager.findDuplicate(DownloadManager.items.value, link) != null
         setContent {
             PocketTheme(Prefs(this).reduceMotion) {
                 ShareSheet(
                     url = link,
+                    duplicate = duplicate,
                     onQuick = ::quick,
                     onOpen = ::openApp,
                     onDismiss = ::finish,

@@ -152,55 +152,47 @@ object Ytdlp {
                 recommended = f.id == firstCompatibleId,
                 hasAudio = f.hasAudio,
                 mergeToMp4 = codec == "H.264" || codec == "HEVC",
+                warning = if (r.compatible || !anyCompatible) null
+                else Compat.reason(f.vcodec, f.width ?: (h * 16 / 9), h, f.fps ?: 30.0),
             )
         }
     }
 
     // ------------------------------------------------------------- descarga
 
+    /** Carpeta temporal que se conserva al pausar para poder reanudar. */
+    fun tmpDir(context: Context, id: String) = File(context.filesDir, "dl/$id")
+
+    /** Descarga (o reanuda) un elemento de la cola y lo guarda en su carpeta final. */
     suspend fun download(
         context: Context,
-        meta: VideoMeta,
-        job: DlJob,
-        processId: String,
+        item: DlItem,
         onProgress: (Float, Long) -> Unit,
     ): Saved = withContext(Dispatchers.IO) {
         Engine.ensure(context)
-        val tmp = File(context.cacheDir, "dl/$processId")
-        tmp.deleteRecursively()
+        val tmp = tmpDir(context, item.id)
         tmp.mkdirs()
-        try {
-            val request = YoutubeDLRequest(meta.url)
-            request.addOption("--no-playlist")
-            request.addOption("-o", "${tmp.absolutePath}/%(title).80s.%(ext)s")
-            when (job) {
-                is DlJob.Video -> {
-                    val o = job.option
-                    val selector = if (o.hasAudio) {
-                        o.formatId
-                    } else {
-                        "${o.formatId}+bestaudio[ext=m4a]/${o.formatId}+bestaudio/${o.formatId}"
-                    }
-                    request.addOption("-f", selector)
-                    if (o.mergeToMp4) request.addOption("--merge-output-format", "mp4")
-                }
-
-                is DlJob.Audio -> {
-                    request.addOption("-f", "bestaudio/best")
-                    request.addOption("-x")
-                    request.addOption("--audio-format", job.format.ext)
-                    request.addOption("--audio-quality", "${job.quality.kbps}K")
-                }
-            }
-            YoutubeDL.execute(request, processId) { progress, eta, _ -> onProgress(progress, eta) }
-
-            val file = tmp.listFiles()
-                ?.filter { it.isFile && !it.name.endsWith(".part") && !it.name.endsWith(".ytdl") }
-                ?.maxByOrNull { it.length() }
-                ?: throw YoutubeDLException("No se generó ningún archivo")
-            Storage.save(context, file)
-        } finally {
-            tmp.deleteRecursively()
+        val request = YoutubeDLRequest(item.url)
+        request.addOption("--no-playlist")
+        request.addOption("--continue")
+        request.addOption("-o", "${tmp.absolutePath}/%(title).80s.%(ext)s")
+        if (item.kind == "audio") {
+            request.addOption("-f", "bestaudio/best")
+            request.addOption("-x")
+            request.addOption("--audio-format", item.audioExt ?: "m4a")
+            request.addOption("--audio-quality", "${item.audioKbps}K")
+        } else {
+            val id = item.formatId ?: "best"
+            val selector = if (item.hasAudio) id else "$id+bestaudio[ext=m4a]/$id+bestaudio/$id"
+            request.addOption("-f", selector)
+            if (item.mergeToMp4) request.addOption("--merge-output-format", "mp4")
         }
+        YoutubeDL.execute(request, item.id) { progress, eta, _ -> onProgress(progress, eta) }
+
+        val file = tmp.listFiles()
+            ?.filter { it.isFile && !it.name.endsWith(".part") && !it.name.endsWith(".ytdl") && !it.name.endsWith(".temp") }
+            ?.maxByOrNull { it.length() }
+            ?: throw YoutubeDLException("No se generó ningún archivo")
+        Storage.save(context, file, item.folderUri)
     }
 }

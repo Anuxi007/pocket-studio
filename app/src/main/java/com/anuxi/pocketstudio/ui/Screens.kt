@@ -13,7 +13,11 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -111,13 +115,25 @@ fun HomeScreen(vm: MainViewModel) {
 
 @Composable
 fun DownloaderScreen(vm: MainViewModel) {
-    val clipboard = LocalClipboardManager.current
+    val items by DownloadManager.items.collectAsState()
+    val activeCount = items.count { it.status != ItemStatus.Done }
     Column(
         Modifier.fillMaxSize().padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         ScreenHeader("Downloader", onBack = vm::back)
+        DownloaderTabs(vm.downloaderTab, activeCount) { vm.downloaderTab = it }
+        if (vm.downloaderTab == 0) NewLinkTab(vm, items) else DownloadsTab(vm, items)
+    }
+}
 
+@Composable
+private fun ColumnScope.NewLinkTab(vm: MainViewModel, items: List<DlItem>) {
+    val clipboard = LocalClipboardManager.current
+    Column(
+        Modifier.weight(1f).fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -175,8 +191,13 @@ fun DownloaderScreen(vm: MainViewModel) {
 
             is InfoState.Ready -> {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.SpaceBetween) {
-                    VideoCard(s.meta)
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        VideoCard(s.meta)
+                        DownloadManager.findDuplicate(items, s.meta.url)?.let { dup ->
+                            DuplicateBanner(dup) { vm.downloaderTab = 1 }
+                        }
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("¿Qué quieres descargar?", color = Ps.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         MintButton(
                             "Video",
@@ -229,7 +250,7 @@ fun DownloaderScreen(vm: MainViewModel) {
 private fun VideoCard(meta: VideoMeta) {
     Column(Modifier.fillMaxWidth().clip(CardShape).background(Ps.Card)) {
         Box(
-            Modifier.fillMaxWidth().height(170.dp).background(Color(0xFF232750)),
+            Modifier.fillMaxWidth().height(140.dp).background(Color(0xFF232750)),
             contentAlignment = Alignment.Center,
         ) {
             if (meta.thumbnail != null) {
@@ -314,11 +335,11 @@ fun OptionRow(
     subtitle: String,
     size: String,
     selected: Boolean,
-    enabled: Boolean = true,
+    warning: Boolean = false,
     recommended: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(16.dp)
     Row(
         Modifier
             .fillMaxWidth()
@@ -328,32 +349,32 @@ fun OptionRow(
                 BorderStroke(if (selected) 2.dp else 1.5.dp, if (selected) Ps.Mint else Ps.Line),
                 shape,
             )
-            .pressable(enabled = enabled, onClick = onClick)
-            .heightIn(min = 64.dp)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .pressable(onClick = onClick)
+            .heightIn(min = 54.dp)
+            .padding(horizontal = 14.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     title,
-                    color = if (enabled) Ps.Text else Ps.Muted2,
-                    fontSize = 17.sp,
+                    color = Ps.Text,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 if (recommended) {
                     Spacer(Modifier.width(8.dp))
                     Badge("Recomendado", Ps.Mint, Ps.OnMint)
                 }
-                if (!enabled) {
+                if (warning) {
                     Spacer(Modifier.width(8.dp))
-                    Badge("No compatible", Ps.Amber.copy(alpha = 0.16f), Ps.Amber)
+                    Badge("Puede fallar", Ps.Amber.copy(alpha = 0.16f), Ps.Amber)
                 }
             }
-            Text(subtitle, color = if (enabled) Color(0xFFC3C6E8) else Ps.Muted2, fontSize = 13.sp)
+            Text(subtitle, color = Color(0xFFC3C6E8), fontSize = 13.sp)
         }
         Spacer(Modifier.width(12.dp))
-        Text(size, color = if (enabled) Ps.Text else Ps.Muted2, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(size, color = Ps.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -361,15 +382,19 @@ fun OptionRow(
 fun VideoScreen(vm: MainViewModel) {
     val ready = vm.info as? InfoState.Ready
     val selected = ready?.videoOptions?.firstOrNull { it.formatId == vm.selectedVideo }
+    var warn by remember { mutableStateOf<VideoOption?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
+        if (uri != null) vm.setDownloadFolder(uri)
+    }
     Column(
         Modifier.fillMaxSize().padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ScreenHeader("Video", onBack = vm::back)
-        Text(remember { Compat.summary() }, color = Ps.Muted, fontSize = 14.sp, lineHeight = 21.sp)
+        Text(remember { Compat.summary() }, color = Ps.Muted, fontSize = 13.sp, lineHeight = 19.sp)
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ready?.videoOptions?.forEach { o ->
                 val sub = listOfNotNull(
@@ -382,11 +407,12 @@ fun VideoScreen(vm: MainViewModel) {
                     subtitle = sub,
                     size = formatSize(o.sizeBytes),
                     selected = o.formatId == vm.selectedVideo,
-                    enabled = o.compatible,
+                    warning = !o.compatible,
                     recommended = o.recommended,
                 ) { vm.selectedVideo = o.formatId }
             }
         }
+        FolderRow(vm) { picker.launch(null) }
         Text(
             "Incluye el mejor audio compatible (AAC)",
             color = Ps.Muted,
@@ -398,7 +424,19 @@ fun VideoScreen(vm: MainViewModel) {
             text = if (selected != null) "Descargar ${selected.label} · ${formatSize(selected.sizeBytes)}" else "Elige una opción",
             iconRes = R.drawable.ic_download,
             enabled = selected != null,
-        ) { vm.startVideoDownload() }
+        ) {
+            if (selected != null && !selected.compatible) warn = selected else vm.startVideoDownload()
+        }
+    }
+    warn?.let { o ->
+        val rec = ready?.videoOptions?.firstOrNull { it.recommended && it.compatible }
+        CompatWarningDialog(
+            option = o,
+            recommended = rec,
+            onRecommended = { warn = null; vm.startVideoDownload(rec) },
+            onAnyway = { warn = null; vm.startVideoDownload(o) },
+            onDismiss = { warn = null },
+        )
     }
 }
 
@@ -409,9 +447,12 @@ fun AudioScreen(vm: MainViewModel) {
     val ready = vm.info as? InfoState.Ready
     val duration = ready?.meta?.durationSec ?: 0L
     fun sizeFor(q: AudioQuality): Long? = if (duration > 0) duration * q.kbps * 125 else null
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
+        if (uri != null) vm.setDownloadFolder(uri)
+    }
     Column(
         Modifier.fillMaxSize().padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         ScreenHeader("Audio", onBack = vm::back)
 
@@ -420,7 +461,7 @@ fun AudioScreen(vm: MainViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AudioFmt.entries.forEach { f ->
                     val sel = vm.audioFormat == f
-                    val shape = RoundedCornerShape(18.dp)
+                    val shape = RoundedCornerShape(16.dp)
                     Column(
                         Modifier
                             .weight(1f)
@@ -428,8 +469,8 @@ fun AudioScreen(vm: MainViewModel) {
                             .background(if (sel) Ps.Mint.copy(alpha = 0.10f) else Ps.Card)
                             .border(BorderStroke(if (sel) 2.dp else 1.5.dp, if (sel) Ps.Mint else Ps.Line), shape)
                             .pressable { vm.audioFormat = f }
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
                         Text(f.label, color = Ps.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         Text(f.desc, color = Color(0xFFC3C6E8), fontSize = 12.sp)
@@ -442,7 +483,7 @@ fun AudioScreen(vm: MainViewModel) {
             }
         }
 
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Calidad")
             AudioQuality.entries.forEach { q ->
                 OptionRow(
@@ -455,6 +496,7 @@ fun AudioScreen(vm: MainViewModel) {
             }
         }
 
+        FolderRow(vm) { picker.launch(null) }
         MintButton(
             text = "Descargar ${vm.audioFormat.label} · ${formatSize(sizeFor(vm.audioQuality))}",
             iconRes = R.drawable.ic_download,
@@ -481,7 +523,7 @@ private fun SmallButton(text: String, enabled: Boolean = true, onClick: () -> Un
             .clip(RoundedCornerShape(22.dp))
             .background(if (enabled) Ps.Mint else Ps.Mint.copy(alpha = 0.35f))
             .pressable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 9.dp),
     )
 }
 
@@ -493,7 +535,7 @@ fun SettingsScreen(vm: MainViewModel) {
     }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         ScreenHeader("Opciones", onBack = vm::back)
 
@@ -592,6 +634,54 @@ fun SettingsScreen(vm: MainViewModel) {
                         color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.fillMaxWidth().pressable { vm.resetFolder() }.padding(16.dp),
                     )
+                }
+            }
+        }
+
+        // --- cola e historial
+        var confirmHistory by remember { mutableStateOf(false) }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionLabel("Cola e historial")
+            SettingsCard {
+                Row(
+                    Modifier.fillMaxWidth().pressable { vm.changeMaxParallel(if (vm.maxParallel >= 3) 1 else vm.maxParallel + 1) }.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Descargas simultáneas", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text("${vm.maxParallel}", color = Ps.Mint, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                HorizontalDivider(color = Ps.Line.copy(alpha = 0.5f))
+                Row(
+                    Modifier.fillMaxWidth().pressable { vm.changeAskPlayer(!vm.askPlayer) }.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Abrir con", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text(if (vm.askPlayer) "Preguntar siempre" else "Predeterminado", color = Ps.Muted, fontSize = 13.sp)
+                }
+                HorizontalDivider(color = Ps.Line.copy(alpha = 0.5f))
+                Row(
+                    Modifier.fillMaxWidth().pressable { confirmHistory = true }.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Borrar historial", color = Color(0xFFFF8A8A), fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text("Los archivos se quedan", color = Ps.Muted, fontSize = 13.sp)
+                }
+            }
+        }
+        if (confirmHistory) {
+            androidx.compose.ui.window.Dialog(onDismissRequest = { confirmHistory = false }) {
+                SheetColumn {
+                    Text("¿Borrar el historial?", color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Se quitan las descargas completadas de la lista. Los archivos se quedan en tu celular.",
+                        color = Color(0xFFC3C6E8), fontSize = 14.sp, lineHeight = 21.sp,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SmallPill("Cancelar", Modifier.weight(1f)) { confirmHistory = false }
+                        SmallPill("Borrar", Modifier.weight(1f), filled = true) {
+                            DownloadManager.clearCompleted(); confirmHistory = false
+                        }
+                    }
                 }
             }
         }

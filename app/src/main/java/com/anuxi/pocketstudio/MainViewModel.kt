@@ -34,8 +34,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var audioFormat by mutableStateOf(AudioFmt.AAC)
     var audioQuality by mutableStateOf(AudioQuality.BEST)
 
-    // descarga
-    var dl by mutableStateOf<DlState>(DlState.Idle)
+    // descargas
+    var downloaderTab by mutableStateOf(0)
+    var pendingFolderUri by mutableStateOf<String?>(null)
+    var pendingFolderLabel by mutableStateOf<String?>(null)
+    var maxParallel by mutableStateOf(prefs.maxParallel)
+    var askPlayer by mutableStateOf(prefs.askPlayer)
+    var askNotifications: (() -> Unit)? = null
 
     // actualizaciones
     var apkUpdate by mutableStateOf<ApkUpdateState>(ApkUpdateState.Idle)
@@ -44,10 +49,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var ytBusy by mutableStateOf(false)
 
     private var infoJob: Job? = null
-    private var dlJob: Job? = null
-    private var currentProcess: String? = null
 
     init {
+        DownloadManager.init(app)
         // Prepara el motor en segundo plano para que la primera descarga no espere.
         viewModelScope.launch {
             try {
@@ -63,6 +67,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun go(to: Screen) {
         screen = to
+    }
+
+    fun showDownloads() {
+        screen = Screen.Downloader
+        downloaderTab = 1
     }
 
     fun back() {
@@ -108,68 +117,85 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Llega desde la ventana de compartir al tocar "Abrir". */
     fun openLink(url: String) {
         screen = Screen.Downloader
+        downloaderTab = 0
         onLinkChange(url)
     }
 
     // -------------------------------------------------------------- descargas
 
-    private fun newProcessId(): String {
-        val id = "dl${System.nanoTime()}"
-        currentProcess = id
-        return id
-    }
-
-    fun startVideoDownload() {
+    fun startVideoDownload(option: VideoOption? = null) {
         val ready = info as? InfoState.Ready ?: return
-        val option = ready.videoOptions.firstOrNull { it.formatId == selectedVideo } ?: return
-        start(ready.meta, DlJob.Video(option))
+        val o = option ?: ready.videoOptions.firstOrNull { it.formatId == selectedVideo } ?: return
+        enqueue(
+            DlItem(
+                id = newId(), url = ready.meta.url, title = ready.meta.title, thumb = ready.meta.thumbnail,
+                kind = "video",
+                label = listOfNotNull(o.label, o.codecName, o.container).joinToString(" · "),
+                formatId = o.formatId, hasAudio = o.hasAudio, mergeToMp4 = o.mergeToMp4,
+                sizeBytes = o.sizeBytes, folderUri = pendingFolderUri,
+            )
+        )
     }
 
     fun startAudioDownload() {
         val ready = info as? InfoState.Ready ?: return
-        start(ready.meta, DlJob.Audio(audioFormat, audioQuality))
+        enqueue(
+            DlItem(
+                id = newId(), url = ready.meta.url, title = ready.meta.title, thumb = ready.meta.thumbnail,
+                kind = "audio", label = "${audioFormat.label} · ${audioQuality.label}",
+                audioExt = audioFormat.ext, audioKbps = audioQuality.kbps,
+                folderUri = pendingFolderUri,
+            )
+        )
     }
 
-    private fun start(meta: VideoMeta, job: DlJob) {
-        val pid = newProcessId()
-        dl = DlState.Running(-1f, "Preparando…")
-        dlJob?.cancel()
-        dlJob = viewModelScope.launch {
-            try {
-                runDownload(meta, job, pid)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: YoutubeDL.CanceledException) {
-                dl = DlState.Idle
-            } catch (e: Exception) {
-                dl = DlState.Failed(Errors.classify(e.message ?: e.toString()))
-            }
+    private fun newId() = "dl${System.nanoTime()}"
+
+    private fun enqueue(item: DlItem) {
+        askNotifications?.invoke()
+        DownloadManager.enqueue(item)
+        pendingFolderUri = null
+        pendingFolderLabel = null
+        link = ""
+        info = InfoState.Idle
+        selectedVideo = null
+        downloaderTab = 1
+        screen = Screen.Downloader
+    }
+
+    /** "Descargar otra versión" desde el historial. */
+    fun downloadAgain(item: DlItem) {
+        downloaderTab = 0
+        onLinkChange(item.url)
+    }
+
+    /** Carpeta elegida solo para la descarga que se esta preparando. */
+    fun setDownloadFolder(uri: Uri) {
+        try {
+            ctx.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+            pendingFolderUri = uri.toString()
+            pendingFolderLabel = Storage.labelOf(uri.toString())
+        } catch (e: Exception) {
+            // si el sistema no deja guardar el permiso, seguimos con la carpeta de siempre
         }
     }
 
-    private suspend fun runDownload(meta: VideoMeta, job: DlJob, pid: String) {
-        val saved = Ytdlp.download(ctx, meta, job, pid) { progress, eta ->
-            val pct = if (progress < 0) "" else " ${progress.toInt()} %"
-            val rest = if (eta > 0) " · faltan ${eta} s" else ""
-            dl = DlState.Running(progress / 100f, "Descargando…$pct$rest")
-        }
-        dl = DlState.Done(saved)
+    fun resetDownloadFolder() {
+        pendingFolderUri = null
+        pendingFolderLabel = null
     }
 
-    fun cancelDownload() {
-        currentProcess?.let {
-            try {
-                YoutubeDL.destroyProcessById(it)
-            } catch (e: Exception) {
-                // si no habia proceso, no pasa nada
-            }
-        }
-        dlJob?.cancel()
-        dl = DlState.Idle
+    fun changeMaxParallel(n: Int) {
+        prefs.maxParallel = n
+        maxParallel = prefs.maxParallel
     }
 
-    fun dismissDownload() {
-        dl = DlState.Idle
+    fun changeAskPlayer(v: Boolean) {
+        prefs.askPlayer = v
+        askPlayer = v
     }
 
     // ------------------------------------------------------------- ajustes

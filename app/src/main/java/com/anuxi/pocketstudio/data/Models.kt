@@ -42,6 +42,7 @@ data class VideoOption(
     val recommended: Boolean,
     val hasAudio: Boolean,
     val mergeToMp4: Boolean,
+    val warning: String? = null,
 )
 
 enum class AudioFmt(val label: String, val ext: String, val desc: String) {
@@ -60,7 +61,13 @@ sealed interface DlJob {
     data class Audio(val format: AudioFmt, val quality: AudioQuality) : DlJob
 }
 
-data class Saved(val where: String, val fellBack: Boolean)
+data class Saved(
+    val where: String,
+    val fellBack: Boolean,
+    val uri: String? = null,
+    val mime: String? = null,
+    val sizeBytes: Long? = null,
+)
 
 enum class ErrorAction { UpdateYtdlp, Clear, Retry }
 
@@ -78,13 +85,6 @@ sealed interface InfoState {
     data object Loading : InfoState
     data class Ready(val meta: VideoMeta, val videoOptions: List<VideoOption>) : InfoState
     data class Failed(val error: AppError) : InfoState
-}
-
-sealed interface DlState {
-    data object Idle : DlState
-    data class Running(val progress: Float, val text: String) : DlState
-    data class Done(val saved: Saved) : DlState
-    data class Failed(val error: AppError) : DlState
 }
 
 sealed interface ApkUpdateState {

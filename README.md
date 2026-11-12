@@ -2,16 +2,17 @@
 
 App gratuita y de código abierto para Android: descarga video o audio a partir de un enlace y, más adelante, edítalo.
 
-> **Versión alpha 0.0.2.** Puede tener errores. Úsala solo con contenido propio, libre o con permiso.
+> **Versión alpha 0.0.3.** Puede tener errores. Úsala solo con contenido propio, libre o con permiso.
 
 ## Qué hace
 
 - **Downloader:** pega un enlace, elige **Video** o **Audio** y descarga.
-- **Video:** lista por resolución con fps, códec, contenedor y tamaño aproximado. Bloquea lo que el chip de tu celular no puede reproducir (por ejemplo 4K en AV1) y marca una opción **Recomendada**.
+- **Video:** lista por resolución con fps, códec, contenedor y tamaño aproximado. Avisa (sin bloquear) lo que el chip de tu celular quizá no pueda reproducir, como 4K en AV1, y marca una opción **Recomendada**.
 - **Audio:** AAC (M4A) o MP3, con tres calidades y tamaño aproximado.
 - **Compartir desde otras apps:** aparece en el menú *Compartir* y abre una ventana flotante encima de la app (YouTube, TikTok…) con dos opciones: **Descarga rápida** (en segundo plano, con el progreso en una notificación) o **Abrir**.
+- **Descargas:** pestaña con cola, historial, pausa y reanudar, cancelar, descargas en segundo plano con notificación, aviso de enlace repetido, abrir con el reproductor que elijas, compartir y eliminar uno o varios archivos.
 - **Errores honestos:** explica qué falló (video privado, sin conexión, página cambió, etc.) y muestra los detalles técnicos para reportarlos.
-- **Carpeta de descargas:** `Download/Pocket Studio` por defecto, o la que elijas (la app la recuerda).
+- **Carpeta de descargas:** `Download/Pocket Studio` por defecto, o la que elijas (la app la recuerda). También puedes elegir otra carpeta solo para una descarga.
 - **Actualizaciones:** en *Opciones* puedes actualizar yt-dlp y buscar nuevas versiones de la app en los [Releases](../../releases) de este repositorio.
 
 ## Instalar
@@ -45,7 +46,6 @@ El APK se firma con la llave de pruebas `signing/alpha.jks`, que es **pública**
 ## Pendiente
 
 - Gestor de componentes (descargar yt-dlp desde su GitHub oficial en lugar de incluirlo).
-- Descargas en segundo plano también para las que se inician dentro de la app (hoy solo la *Descarga rápida* corre en segundo plano).
 - Editor de video, letras sincronizadas y reconocimiento de canciones.
 
 ## Licencia

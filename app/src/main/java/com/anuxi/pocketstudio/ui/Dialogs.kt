@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,19 +23,17 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.anuxi.pocketstudio.MainViewModel
 import com.anuxi.pocketstudio.R
-import com.anuxi.pocketstudio.data.DlState
-import com.anuxi.pocketstudio.data.ErrorAction
 
 private val SheetColor = Color(0xFF262A52)
 private val SheetShape = RoundedCornerShape(28.dp)
-private val WideDialog = DialogProperties(
+internal val WideDialog = DialogProperties(
     usePlatformDefaultWidth = false,
     dismissOnBackPress = false,
     dismissOnClickOutside = false,
 )
 
 @Composable
-private fun SheetColumn(content: @Composable ColumnScope.() -> Unit) {
+internal fun SheetColumn(content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -85,7 +82,7 @@ fun WelcomeDialog(vm: MainViewModel) {
 
 /** Ventana flotante que aparece encima de otra app cuando comparte un enlace con Pocket Studio. */
 @Composable
-fun ShareSheet(url: String, onQuick: () -> Unit, onOpen: () -> Unit, onDismiss: () -> Unit) {
+fun ShareSheet(url: String, duplicate: Boolean, onQuick: () -> Unit, onOpen: () -> Unit, onDismiss: () -> Unit) {
     val none = remember { MutableInteractionSource() }
     Box(
         Modifier
@@ -112,6 +109,12 @@ fun ShareSheet(url: String, onQuick: () -> Unit, onOpen: () -> Unit, onDismiss: 
                         Text("Pocket Studio", color = Ps.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         Text(url, color = Ps.Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                }
+                if (duplicate) {
+                    Text(
+                        "Ya descargaste este enlace. Puedes bajarlo otra vez si quieres otra versión.",
+                        color = Ps.Amber, fontSize = 13.sp, lineHeight = 19.sp,
+                    )
                 }
                 Column(
                     Modifier
@@ -151,75 +154,6 @@ fun ShareSheet(url: String, onQuick: () -> Unit, onOpen: () -> Unit, onDismiss: 
                         "Abre la app con el enlace ya pegado para elegir formato y calidad.",
                         color = Ps.Muted, fontSize = 13.sp, lineHeight = 19.sp,
                     )
-                }
-            }
-        }
-    }
-}
-
-/** Progreso, resultado o error de una descarga. */
-@Composable
-fun DownloadDialog(vm: MainViewModel) {
-    val state = vm.dl
-    if (state == DlState.Idle) return
-    Dialog(onDismissRequest = {}, properties = WideDialog) {
-        SheetColumn {
-            when (state) {
-                DlState.Idle -> {}
-
-                is DlState.Running -> {
-                    Text("Descargando", color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    if (state.progress < 0f) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                            color = Ps.Mint,
-                            trackColor = Ps.CardStrong,
-                        )
-                    } else {
-                        LinearProgressIndicator(
-                            progress = state.progress.coerceIn(0f, 1f),
-                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                            color = Ps.Mint,
-                            trackColor = Ps.CardStrong,
-                        )
-                    }
-                    Text(state.text, color = Ps.Muted, fontSize = 14.sp)
-                    OutlineButton("Cancelar") { vm.cancelDownload() }
-                }
-
-                is DlState.Done -> {
-                    Text("¡Listo!", color = Ps.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Text("Guardado en:", color = Ps.Muted, fontSize = 14.sp)
-                    Text(state.saved.where, color = Ps.Mint, fontSize = 14.sp, lineHeight = 20.sp)
-                    if (state.saved.fellBack) {
-                        Text(
-                            "La carpeta que elegiste ya no estaba disponible, así que usamos la predeterminada.",
-                            color = Ps.Amber, fontSize = 13.sp, lineHeight = 19.sp,
-                        )
-                    }
-                    MintButton("Cerrar") { vm.dismissDownload() }
-                }
-
-                is DlState.Failed -> {
-                    val e = state.error
-                    Text(e.title, color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(e.text, color = Color(0xFFE3E5F7), fontSize = 15.sp, lineHeight = 22.sp)
-                    Text(e.hint, color = Color(0xFFC3C6E8), fontSize = 13.sp, lineHeight = 19.sp)
-                    Text(
-                        e.detail,
-                        color = Ps.Muted2, fontSize = 12.sp, lineHeight = 18.sp,
-                        maxLines = 4, overflow = TextOverflow.Ellipsis,
-                    )
-                    if (e.action == ErrorAction.UpdateYtdlp) {
-                        MintButton(e.actionLabel, enabled = !vm.ytBusy) {
-                            vm.dismissDownload()
-                            vm.go(com.anuxi.pocketstudio.data.Screen.Settings)
-                            vm.updateYtdlp()
-                        }
-                        OutlineButton("Cerrar") { vm.dismissDownload() }
-                    } else {
-                        MintButton("Cerrar") { vm.dismissDownload() }
-                    }
                 }
             }
         }

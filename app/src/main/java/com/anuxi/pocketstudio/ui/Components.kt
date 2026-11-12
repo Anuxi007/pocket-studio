@@ -96,8 +96,8 @@ fun MintButton(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(60.dp)
-            .clip(RoundedCornerShape(30.dp))
+            .height(48.dp)
+            .clip(RoundedCornerShape(24.dp))
             .background(if (enabled) Ps.Mint else Ps.Mint.copy(alpha = 0.35f))
             .pressable(enabled = enabled, onClick = onClick),
         horizontalArrangement = Arrangement.Center,
@@ -107,7 +107,7 @@ fun MintButton(
             PsIcon(iconRes, Ps.OnMint)
             Spacer(Modifier.width(10.dp))
         }
-        Text(text, color = Ps.OnMint, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = Ps.OnMint, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -122,9 +122,9 @@ fun OutlineButton(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(60.dp)
-            .clip(RoundedCornerShape(30.dp))
-            .border(BorderStroke(1.5.dp, Ps.Line), RoundedCornerShape(30.dp))
+            .height(48.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .border(BorderStroke(1.5.dp, Ps.Line), RoundedCornerShape(24.dp))
             .pressable(enabled = enabled, onClick = onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -133,7 +133,7 @@ fun OutlineButton(
             PsIcon(iconRes, Ps.Text)
             Spacer(Modifier.width(10.dp))
         }
-        Text(text, color = Ps.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = Ps.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -141,7 +141,7 @@ fun OutlineButton(
 fun RoundIconButton(vector: ImageVector, description: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(48.dp)
+            .size(40.dp)
             .clip(CircleShape)
             .background(Ps.CardStrong)
             .pressable(onClick = onClick),

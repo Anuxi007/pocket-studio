@@ -66,6 +66,18 @@ object Compat {
         }
     }
 
+    /** Explica por que un video puede no reproducirse bien en este celular. */
+    fun reason(vcodec: String?, width: Int, height: Int, fps: Double): String {
+        val name = codecName(vcodec)
+        val mime = mimeFor(vcodec)
+        val hasHardware = mime != null && forMime(mime).any { it.isHardwareAccelerated }
+        return if (!hasHardware) {
+            "Tu celular no tiene decodificador por hardware para $name, así que se vería entrecortado o sin imagen."
+        } else {
+            "Tu celular reproduce $name, pero no ${height}p a ${fps.toInt()} fps. Se vería entrecortado o sin imagen."
+        }
+    }
+
     /** Frase corta para mostrar arriba de la lista de video. */
     fun summary(): String {
         val names = mutableListOf<String>()
@@ -92,6 +104,6 @@ object Compat {
         if (names.isEmpty()) return "No pudimos comprobar qué códecs reproduce tu celular."
         val res = if (best >= 2160) "4K" else "${best}p"
         return "Tu celular reproduce hasta $res con ${names.joinToString(", ")}. " +
-            "Lo que no puede reproducir aparece bloqueado."
+            "Las opciones con aviso se pueden descargar igual, pero quizá no se vean bien."
     }
 }

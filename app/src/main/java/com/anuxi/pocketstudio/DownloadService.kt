@@ -9,15 +9,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
-import com.anuxi.pocketstudio.data.AudioFmt
-import com.anuxi.pocketstudio.data.AudioQuality
-import com.anuxi.pocketstudio.data.DlJob
-import com.anuxi.pocketstudio.data.Errors
-import com.anuxi.pocketstudio.data.Ytdlp
-import com.yausername.youtubedl_android.YoutubeDL
-import kotlinx.coroutines.CancellationException
+import com.anuxi.pocketstudio.data.DlItem
+import com.anuxi.pocketstudio.data.DownloadManager
+import com.anuxi.pocketstudio.data.ItemStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,88 +21,68 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * "Descarga rápida": baja el mejor formato compatible en segundo plano y muestra
- * el progreso en una notificación. Así la descarga sigue aunque cierres la ventana.
+ * Mantiene vivo el proceso mientras hay descargas y muestra su progreso en una notificacion
+ * (con Pausar y Cancelar). La cola en si vive en [DownloadManager].
  */
 class DownloadService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var job: Job? = null
-    private var processId: String? = null
+    private var observer: Job? = null
+    private var previous: Map<String, ItemStatus> = emptyMap()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_CANCEL) {
-            cancel()
-            return START_NOT_STICKY
-        }
-        val url = intent?.getStringExtra(EXTRA_URL)
+        DownloadManager.init(this)
         createChannels()
         // Android exige llamar a startForeground rapido tras startForegroundService.
         startForeground(
             NOTIF_PROGRESS,
-            progressNotification("Buscando el video…", -1),
+            progressNotification(DownloadManager.items.value.filter(::isActive)),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
         )
-        if (url == null) {
-            stopSelf()
-            return START_NOT_STICKY
+        val id = intent?.getStringExtra(EXTRA_ID)
+        when (intent?.action) {
+            ACTION_PAUSE -> id?.let { DownloadManager.pause(it) }
+            ACTION_RESUME -> id?.let { DownloadManager.resume(it) }
+            ACTION_CANCEL -> id?.let { DownloadManager.cancel(it) }
+            ACTION_PAUSE_ALL -> DownloadManager.pauseAll()
+            ACTION_CANCEL_ALL -> DownloadManager.cancelAll()
+            else -> intent?.getStringExtra(EXTRA_URL)?.let { DownloadManager.enqueueQuick(this, it) }
         }
-        if (job?.isActive == true) {
-            Toast.makeText(this, "Ya hay una descarga en curso", Toast.LENGTH_SHORT).show()
-            return START_NOT_STICKY
+        if (observer == null) {
+            observer = scope.launch { DownloadManager.items.collect { handle(it) } }
         }
-        start(url)
         return START_NOT_STICKY
     }
 
-    private fun start(url: String) {
-        val pid = "svc${System.nanoTime()}"
-        processId = pid
-        job = scope.launch {
-            try {
-                val meta = Ytdlp.fetchInfo(this@DownloadService, url)
-                val options = Ytdlp.buildVideoOptions(meta)
-                val dlJob = (options.firstOrNull { it.recommended } ?: options.firstOrNull())
-                    ?.let { DlJob.Video(it) }
-                    ?: DlJob.Audio(AudioFmt.AAC, AudioQuality.BEST)
-                var lastPct = -2
-                val saved = Ytdlp.download(this@DownloadService, meta, dlJob, pid) { progress, _ ->
-                    val pct = progress.toInt()
-                    if (pct != lastPct) {
-                        lastPct = pct
-                        notify(NOTIF_PROGRESS, progressNotification(meta.title, pct))
-                    }
-                }
-                notify(
-                    NOTIF_RESULT,
-                    resultNotification("Descarga lista", "${meta.title}\nGuardado en ${saved.where}"),
-                )
-            } catch (e: CancellationException) {
-                // cancelada desde la notificacion
-            } catch (e: YoutubeDL.CanceledException) {
-                // cancelada desde la notificacion
-            } catch (e: Exception) {
-                val err = Errors.classify(e.message ?: e.toString())
-                notify(NOTIF_RESULT, resultNotification(err.title, err.text))
-            } finally {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-            }
-        }
-    }
+    private fun isActive(i: DlItem) = i.status == ItemStatus.Running || i.status == ItemStatus.Queued
 
-    private fun cancel() {
-        processId?.let {
-            try {
-                YoutubeDL.destroyProcessById(it)
-            } catch (e: Exception) {
-                // no habia proceso activo
+    private fun handle(list: List<DlItem>) {
+        val prev = previous
+        previous = list.associate { it.id to it.status }
+        for (item in list) {
+            val before = prev[item.id] ?: continue
+            if (before == item.status) continue
+            when (item.status) {
+                ItemStatus.Done -> notify(
+                    DownloadManager.resultNotificationId(item.id),
+                    resultNotification("Descarga lista", "${item.title}\nGuardado en ${item.savedWhere ?: "tu carpeta"}"),
+                )
+                ItemStatus.Failed -> notify(
+                    DownloadManager.resultNotificationId(item.id),
+                    resultNotification("No se pudo descargar", "${item.title}\n${item.error ?: ""}"),
+                )
+                ItemStatus.Paused -> notify(DownloadManager.pausedNotificationId(item.id), pausedNotification(item))
+                else -> {}
             }
         }
-        job?.cancel()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        val active = list.filter(::isActive)
+        if (active.isEmpty()) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        } else {
+            notify(NOTIF_PROGRESS, progressNotification(active))
+        }
     }
 
     override fun onDestroy() {
@@ -136,27 +111,57 @@ class DownloadService : Service() {
     }
 
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
-        this, 0, Intent(this, MainActivity::class.java),
+        this, 0,
+        Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_DOWNLOADS, true),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
-    private fun progressNotification(title: String, pct: Int): Notification {
-        val cancelIntent = PendingIntent.getService(
-            this, 1,
-            Intent(this, DownloadService::class.java).setAction(ACTION_CANCEL),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+    private fun action(action: String, id: String?, code: Int): PendingIntent {
+        val i = Intent(this, DownloadService::class.java).setAction(action)
+        if (id != null) i.putExtra(EXTRA_ID, id)
+        return PendingIntent.getService(this, code, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    private fun progressNotification(active: List<DlItem>): Notification {
         val builder = NotificationCompat.Builder(this, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_download)
-            .setContentTitle("Descargando")
-            .setContentText(title)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setContentIntent(openAppIntent())
-            .addAction(0, "Cancelar", cancelIntent)
-        if (pct < 0) builder.setProgress(0, 0, true) else builder.setProgress(100, pct, false)
+        val running = active.filter { it.status == ItemStatus.Running }
+        when {
+            active.isEmpty() -> builder.setContentTitle("Descargando").setProgress(0, 0, true)
+            active.size == 1 -> {
+                val item = active[0]
+                builder.setContentTitle(if (item.status == ItemStatus.Queued) "En cola" else "Descargando")
+                    .setContentText(listOf(item.title, item.infoText).filter { it.isNotEmpty() }.joinToString(" · "))
+                if (item.progress > 0f) builder.setProgress(100, item.progress.toInt(), false)
+                else builder.setProgress(0, 0, true)
+                builder.addAction(0, "Pausar", action(ACTION_PAUSE, item.id, 10 + (item.id.hashCode() and 0xFFF)))
+                    .addAction(0, "Cancelar", action(ACTION_CANCEL, item.id, 5000 + (item.id.hashCode() and 0xFFF)))
+            }
+            else -> {
+                val avg = if (running.isEmpty()) 0 else (running.sumOf { it.progress.toDouble() } / running.size).toInt()
+                builder.setContentTitle("Descargando ${active.size} archivos")
+                    .setContentText(running.firstOrNull()?.title ?: "En cola")
+                    .setProgress(100, avg, false)
+                    .addAction(0, "Pausar todo", action(ACTION_PAUSE_ALL, null, 1))
+                    .addAction(0, "Cancelar todo", action(ACTION_CANCEL_ALL, null, 2))
+            }
+        }
         return builder.build()
     }
+
+    private fun pausedNotification(item: DlItem): Notification =
+        NotificationCompat.Builder(this, CHANNEL_RESULT)
+            .setSmallIcon(R.drawable.ic_download)
+            .setContentTitle("Descarga en pausa")
+            .setContentText(item.title)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(openAppIntent())
+            .addAction(0, "Reanudar", action(ACTION_RESUME, item.id, 10000 + (item.id.hashCode() and 0xFFF)))
+            .addAction(0, "Cancelar", action(ACTION_CANCEL, item.id, 5000 + (item.id.hashCode() and 0xFFF)))
+            .build()
 
     private fun resultNotification(title: String, text: String): Notification =
         NotificationCompat.Builder(this, CHANNEL_RESULT)
@@ -170,13 +175,21 @@ class DownloadService : Service() {
 
     companion object {
         private const val EXTRA_URL = "url"
+        private const val EXTRA_ID = "id"
+        private const val ACTION_PAUSE = "com.anuxi.pocketstudio.PAUSE"
+        private const val ACTION_RESUME = "com.anuxi.pocketstudio.RESUME"
         private const val ACTION_CANCEL = "com.anuxi.pocketstudio.CANCEL"
+        private const val ACTION_PAUSE_ALL = "com.anuxi.pocketstudio.PAUSE_ALL"
+        private const val ACTION_CANCEL_ALL = "com.anuxi.pocketstudio.CANCEL_ALL"
         private const val CHANNEL_PROGRESS = "progress"
         private const val CHANNEL_RESULT = "result"
         private const val NOTIF_PROGRESS = 1
-        private const val NOTIF_RESULT = 2
 
+        /** Descarga rapida desde la ventana de compartir. */
         fun intent(context: Context, url: String): Intent =
             Intent(context, DownloadService::class.java).putExtra(EXTRA_URL, url)
+
+        /** Solo despierta el servicio (la cola ya tiene el elemento). */
+        fun wakeIntent(context: Context): Intent = Intent(context, DownloadService::class.java)
     }
 }

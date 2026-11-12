@@ -66,7 +66,6 @@ fun PocketApp(vm: MainViewModel) {
             }
 
             if (!vm.welcomeAccepted) WelcomeDialog(vm)
-            DownloadDialog(vm)
         }
     }
 }
