@@ -3,6 +3,8 @@ package com.anuxi.pocketstudio.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
@@ -81,62 +83,75 @@ fun WelcomeDialog(vm: MainViewModel) {
     }
 }
 
-/** Aparece cuando otra app comparte un enlace con Pocket Studio. */
+/** Ventana flotante que aparece encima de otra app cuando comparte un enlace con Pocket Studio. */
 @Composable
-fun ShareDialog(vm: MainViewModel, url: String) {
-    Dialog(
-        onDismissRequest = vm::dismissShared,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+fun ShareSheet(url: String, onQuick: () -> Unit, onOpen: () -> Unit, onDismiss: () -> Unit) {
+    val none = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0x99080916))
+            .clickable(interactionSource = none, indication = null, onClick = onDismiss)
+            .systemBarsPadding(),
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        SheetColumn {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Ps.Mint),
-                    contentAlignment = Alignment.Center,
-                ) { PsIcon(R.drawable.ic_download, Ps.OnMint) }
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("Pocket Studio", color = Ps.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(url, color = Ps.Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Ps.Mint)
-                    .pressable { vm.quickDownload() }
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
+        // El clic vacio evita que tocar la tarjeta cierre la ventana.
+        Box(
+            Modifier
+                .padding(bottom = 16.dp)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+        ) {
+            SheetColumn {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    PsIcon(R.drawable.ic_bolt, Ps.OnMint, 20.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Descarga rápida", color = Ps.OnMint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Box(
+                        Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Ps.Mint),
+                        contentAlignment = Alignment.Center,
+                    ) { PsIcon(R.drawable.ic_download, Ps.OnMint) }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Pocket Studio", color = Ps.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(url, color = Ps.Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
-                Text(
-                    "Baja el mejor formato que tu celular puede reproducir y lo guarda en tu carpeta.",
-                    color = Ps.OnMint.copy(alpha = 0.8f), fontSize = 13.sp, lineHeight = 19.sp,
-                )
-            }
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(22.dp))
-                    .border(BorderStroke(1.5.dp, Ps.Line), RoundedCornerShape(22.dp))
-                    .pressable { vm.openShared() }
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    PsIcon(R.drawable.ic_open, Ps.Text, 20.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Abrir", color = Ps.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Ps.Mint)
+                        .pressable { onQuick() }
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PsIcon(R.drawable.ic_bolt, Ps.OnMint, 20.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Descarga rápida", color = Ps.OnMint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        "Baja el mejor formato que tu celular puede reproducir y lo guarda en tu carpeta. " +
+                            "Verás el progreso en la notificación.",
+                        color = Ps.OnMint.copy(alpha = 0.8f), fontSize = 13.sp, lineHeight = 19.sp,
+                    )
                 }
-                Text(
-                    "Abre la app con el enlace ya pegado para elegir formato y calidad.",
-                    color = Ps.Muted, fontSize = 13.sp, lineHeight = 19.sp,
-                )
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .border(BorderStroke(1.5.dp, Ps.Line), RoundedCornerShape(22.dp))
+                        .pressable { onOpen() }
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PsIcon(R.drawable.ic_open, Ps.Text, 20.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Abrir", color = Ps.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        "Abre la app con el enlace ya pegado para elegir formato y calidad.",
+                        color = Ps.Muted, fontSize = 13.sp, lineHeight = 19.sp,
+                    )
+                }
             }
         }
     }

@@ -36,7 +36,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // descarga
     var dl by mutableStateOf<DlState>(DlState.Idle)
-    var shareUrl by mutableStateOf<String?>(null)
 
     // actualizaciones
     var apkUpdate by mutableStateOf<ApkUpdateState>(ApkUpdateState.Idle)
@@ -104,44 +103,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearLink() = onLinkChange("")
 
-    // -------------------------------------------------------------- compartir
+    // ---------------------------------------------------- enlace desde "Compartir"
 
-    fun onShared(url: String) {
-        shareUrl = url
-    }
-
-    fun openShared() {
-        val url = shareUrl ?: return
-        shareUrl = null
+    /** Llega desde la ventana de compartir al tocar "Abrir". */
+    fun openLink(url: String) {
         screen = Screen.Downloader
         onLinkChange(url)
-    }
-
-    fun dismissShared() {
-        shareUrl = null
-    }
-
-    fun quickDownload() {
-        val url = shareUrl ?: return
-        shareUrl = null
-        val pid = newProcessId()
-        dl = DlState.Running(-1f, "Buscando el video…")
-        dlJob = viewModelScope.launch {
-            try {
-                val meta = Ytdlp.fetchInfo(ctx, url)
-                val options = Ytdlp.buildVideoOptions(meta)
-                val job = (options.firstOrNull { it.recommended } ?: options.firstOrNull())
-                    ?.let { DlJob.Video(it) }
-                    ?: DlJob.Audio(AudioFmt.AAC, AudioQuality.BEST)
-                runDownload(meta, job, pid)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: YoutubeDL.CanceledException) {
-                dl = DlState.Idle
-            } catch (e: Exception) {
-                dl = DlState.Failed(Errors.classify(e.message ?: e.toString()))
-            }
-        }
     }
 
     // -------------------------------------------------------------- descargas

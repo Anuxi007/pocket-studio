@@ -22,7 +22,7 @@ import com.anuxi.pocketstudio.MainViewModel
 import com.anuxi.pocketstudio.data.Screen
 
 @Composable
-fun PocketApp(vm: MainViewModel) {
+fun PocketTheme(reduceMotion: Boolean, content: @Composable () -> Unit) {
     val scheme = darkColorScheme(
         primary = Ps.Mint,
         onPrimary = Ps.OnMint,
@@ -31,41 +31,42 @@ fun PocketApp(vm: MainViewModel) {
         onSurface = Ps.Text,
         onBackground = Ps.Text,
     )
-    CompositionLocalProvider(LocalReduceMotion provides vm.reduceMotion) {
-        MaterialTheme(colorScheme = scheme) {
-            Box(Modifier.fillMaxSize().background(Ps.Background)) {
-                BackHandler(enabled = vm.screen != Screen.Home) { vm.back() }
+    CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
+        MaterialTheme(colorScheme = scheme, content = content)
+    }
+}
 
-                val duration = if (vm.reduceMotion) 0 else 220
-                AnimatedContent(
-                    targetState = vm.screen,
-                    transitionSpec = { fadeIn(tween(duration)) togetherWith fadeOut(tween(duration)) },
-                    label = "screens",
-                ) { screen ->
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .systemBarsPadding()
-                            .imePadding()
-                            .padding(horizontal = 24.dp),
-                    ) {
-                        when (screen) {
-                            Screen.Home -> HomeScreen(vm)
-                            Screen.Downloader -> DownloaderScreen(vm)
-                            Screen.Video -> VideoScreen(vm)
-                            Screen.Audio -> AudioScreen(vm)
-                            Screen.Settings -> SettingsScreen(vm)
-                        }
+@Composable
+fun PocketApp(vm: MainViewModel) {
+    PocketTheme(vm.reduceMotion) {
+        Box(Modifier.fillMaxSize().background(Ps.Background)) {
+            BackHandler(enabled = vm.screen != Screen.Home) { vm.back() }
+
+            val duration = if (vm.reduceMotion) 0 else 220
+            AnimatedContent(
+                targetState = vm.screen,
+                transitionSpec = { fadeIn(tween(duration)) togetherWith fadeOut(tween(duration)) },
+                label = "screens",
+            ) { screen ->
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .systemBarsPadding()
+                        .imePadding()
+                        .padding(horizontal = 24.dp),
+                ) {
+                    when (screen) {
+                        Screen.Home -> HomeScreen(vm)
+                        Screen.Downloader -> DownloaderScreen(vm)
+                        Screen.Video -> VideoScreen(vm)
+                        Screen.Audio -> AudioScreen(vm)
+                        Screen.Settings -> SettingsScreen(vm)
                     }
                 }
-
-                if (!vm.welcomeAccepted) {
-                    WelcomeDialog(vm)
-                } else {
-                    vm.shareUrl?.let { ShareDialog(vm, it) }
-                }
-                DownloadDialog(vm)
             }
+
+            if (!vm.welcomeAccepted) WelcomeDialog(vm)
+            DownloadDialog(vm)
         }
     }
 }

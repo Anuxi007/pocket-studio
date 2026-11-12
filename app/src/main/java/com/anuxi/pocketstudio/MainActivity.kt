@@ -8,7 +8,6 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import com.anuxi.pocketstudio.data.Ytdlp
 import com.anuxi.pocketstudio.ui.PocketApp
 
 class MainActivity : ComponentActivity() {
@@ -20,20 +19,22 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
-        if (savedInstanceState == null) handleShare(intent)
+        if (savedInstanceState == null) handleLink(intent)
         setContent { PocketApp(vm) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleShare(intent)
+        handleLink(intent)
     }
 
-    /** Si otra app nos comparte un enlace, preguntamos si abrir o descargar rápido. */
-    private fun handleShare(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_SEND) return
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
-        Ytdlp.extractUrl(text)?.let { vm.onShared(it) }
+    /** "Abrir" desde la ventana de compartir: llega con el enlace ya listo. */
+    private fun handleLink(intent: Intent?) {
+        intent?.getStringExtra(EXTRA_LINK)?.let { vm.openLink(it) }
+    }
+
+    companion object {
+        const val EXTRA_LINK = "ps_link"
     }
 }
