@@ -72,9 +72,9 @@ object Compat {
         val mime = mimeFor(vcodec)
         val hasHardware = mime != null && forMime(mime).any { it.isHardwareAccelerated }
         return if (!hasHardware) {
-            "Tu celular no tiene decodificador por hardware para $name, así que se vería entrecortado o sin imagen."
+            tr("Tu celular no tiene decodificador por hardware para $name, así que se vería entrecortado o sin imagen.", "Your phone has no hardware decoder for $name, so it would stutter or show no picture.")
         } else {
-            "Tu celular reproduce $name, pero no ${height}p a ${fps.toInt()} fps. Se vería entrecortado o sin imagen."
+            tr("Tu celular reproduce $name, pero no ${height}p a ${fps.toInt()} fps. Se vería entrecortado o sin imagen.", "Your phone plays $name, but not ${height}p at ${fps.toInt()} fps. It would stutter or show no picture.")
         }
     }
 
@@ -101,9 +101,8 @@ object Compat {
             }
             if (maxH > best) best = maxH
         }
-        if (names.isEmpty()) return "No pudimos comprobar qué códecs reproduce tu celular."
+        if (names.isEmpty()) return tr("No pudimos comprobar qué códecs reproduce tu celular.", "We couldn't check which codecs your phone plays.")
         val res = if (best >= 2160) "4K" else "${best}p"
-        return "Tu celular reproduce hasta $res con ${names.joinToString(", ")}. " +
-            "Las opciones con aviso se pueden descargar igual, pero quizá no se vean bien."
+        return tr("Tu celular reproduce hasta $res con ${names.joinToString(", ")}. Las opciones con aviso se pueden descargar igual, pero quizá no se vean bien.", "Your phone plays up to $res with ${names.joinToString(", ")}. Options with a warning can still be downloaded, but may not look right.")
     }
 }

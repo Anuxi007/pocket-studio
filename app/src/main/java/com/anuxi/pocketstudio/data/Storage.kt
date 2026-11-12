@@ -26,7 +26,7 @@ class Prefs(context: Context) {
         get() = sp.getInt("max_parallel", 2).coerceIn(1, 3)
         set(v) = sp.edit().putInt("max_parallel", v.coerceIn(1, 3)).apply()
 
-    /** true = "Preguntar siempre" con que reproductor abrir; false = el predeterminado del sistema. */
+    /** true = tr("Preguntar siempre", "Always ask") con que reproductor abrir; false = el predeterminado del sistema. */
     var askPlayer: Boolean
         get() = sp.getBoolean("ask_player", true)
         set(v) = sp.edit().putBoolean("ask_player", v).apply()
@@ -50,8 +50,8 @@ object Storage {
     const val DEFAULT_LABEL = "Download/Pocket Studio"
 
     fun labelOf(uri: String): String {
-        val seg = Uri.parse(uri).lastPathSegment ?: return "Carpeta elegida"
-        return seg.replace("primary:", "Almacenamiento interno/")
+        val seg = Uri.parse(uri).lastPathSegment ?: return tr("Carpeta elegida", "Chosen folder")
+        return seg.replace("primary:", tr("Almacenamiento interno/", "Internal storage/"))
     }
 
     fun folderLabel(context: Context): String {
@@ -105,10 +105,10 @@ object Storage {
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
         val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            ?: throw IllegalStateException("No se pudo crear el archivo en Descargas")
+            ?: throw IllegalStateException(tr("No se pudo crear el archivo en Descargas", "Couldn't create the file in Downloads"))
         resolver.openOutputStream(uri)?.use { out ->
             file.inputStream().use { it.copyTo(out) }
-        } ?: throw IllegalStateException("No se pudo escribir el archivo")
+        } ?: throw IllegalStateException(tr("No se pudo escribir el archivo", "Couldn't write the file"))
         values.clear()
         values.put(MediaStore.MediaColumns.IS_PENDING, 0)
         resolver.update(uri, values, null, null)
@@ -117,13 +117,13 @@ object Storage {
 
     private fun saveToTree(context: Context, tree: Uri, file: File, mime: String): Uri {
         val dir = DocumentFile.fromTreeUri(context, tree)
-            ?: throw IllegalStateException("Carpeta no disponible")
-        if (!dir.exists() || !dir.canWrite()) throw IllegalStateException("Sin permiso de escritura")
+            ?: throw IllegalStateException(tr("Carpeta no disponible", "Folder not available"))
+        if (!dir.exists() || !dir.canWrite()) throw IllegalStateException(tr("Sin permiso de escritura", "No write permission"))
         val doc = dir.createFile(mime, file.name)
-            ?: throw IllegalStateException("No se pudo crear el archivo")
+            ?: throw IllegalStateException(tr("No se pudo crear el archivo", "Couldn't create the file"))
         context.contentResolver.openOutputStream(doc.uri)?.use { out ->
             file.inputStream().use { it.copyTo(out) }
-        } ?: throw IllegalStateException("No se pudo escribir el archivo")
+        } ?: throw IllegalStateException(tr("No se pudo escribir el archivo", "Couldn't write the file"))
         return doc.uri
     }
 

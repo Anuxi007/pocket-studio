@@ -45,15 +45,33 @@ data class VideoOption(
     val warning: String? = null,
 )
 
-enum class AudioFmt(val label: String, val ext: String, val desc: String) {
-    AAC("AAC", "m4a", "M4A · mejor calidad por tamaño"),
-    MP3("MP3", "mp3", "Lo lee cualquier aparato"),
+enum class AudioFmt(val label: String, val ext: String) {
+    AAC("AAC", "m4a"),
+    MP3("MP3", "mp3");
+
+    val desc: String
+        get() = when (this) {
+            AAC -> tr("M4A · mejor calidad por tamaño", "M4A · best quality for the size")
+            MP3 -> tr("Lo lee cualquier aparato", "Plays on any device")
+        }
 }
 
-enum class AudioQuality(val label: String, val kbps: Int, val desc: String) {
-    BEST("Mejor", 256, "Hasta 256 kbps"),
-    MEDIUM("Media", 160, "160 kbps"),
-    SAVER("Ahorro", 96, "96 kbps"),
+enum class AudioQuality(val kbps: Int) {
+    BEST(256),
+    MEDIUM(160),
+    SAVER(96);
+
+    val label: String
+        get() = when (this) {
+            BEST -> tr("Mejor", "Best")
+            MEDIUM -> tr("Media", "Medium")
+            SAVER -> tr("Ahorro", "Saver")
+        }
+    val desc: String
+        get() = when (this) {
+            BEST -> tr("Hasta 256 kbps", "Up to 256 kbps")
+            else -> "$kbps kbps"
+        }
 }
 
 sealed interface DlJob {
@@ -98,7 +116,7 @@ sealed interface ApkUpdateState {
 }
 
 fun formatSize(bytes: Long?): String {
-    if (bytes == null || bytes <= 0) return "tamaño desconocido"
+    if (bytes == null || bytes <= 0) return tr("tamaño desconocido", "unknown size")
     val kb = bytes / 1024.0
     val mb = kb / 1024.0
     val gb = mb / 1024.0

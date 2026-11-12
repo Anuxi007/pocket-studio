@@ -1,5 +1,6 @@
 package com.anuxi.pocketstudio
 
+import com.anuxi.pocketstudio.data.tr
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -21,7 +22,7 @@ import com.anuxi.pocketstudio.ui.ShareSheet
 
 /**
  * Ventana flotante que aparece encima de la app desde la que compartes un enlace
- * (YouTube, TikTok, etc.). Ofrece "Descarga rápida" o "Abrir".
+ * (YouTube, TikTok, etc.). Ofrece tr("Descarga rápida", "Quick download") o tr("Abrir", "Open").
  */
 class ShareActivity : ComponentActivity() {
     private var url: String? = null
@@ -76,7 +77,7 @@ class ShareActivity : ComponentActivity() {
     private fun startQuick() {
         val link = url ?: return
         ContextCompat.startForegroundService(this, DownloadService.intent(this, link))
-        Toast.makeText(this, "Descargando… mira la notificación", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, tr("Descargando… mira la notificación", "Downloading… check the notification"), Toast.LENGTH_SHORT).show()
         finish()
     }
 

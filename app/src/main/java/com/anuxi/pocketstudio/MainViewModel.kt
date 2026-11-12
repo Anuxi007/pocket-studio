@@ -64,7 +64,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 Engine.ensure(ctx)
                 ytVersion = YoutubeDL.versionName(ctx)
             } catch (e: Exception) {
-                ytStatus = "No se pudo preparar yt-dlp: ${e.message ?: "error desconocido"}"
+                ytStatus = tr("No se pudo preparar yt-dlp: ${e.message ?: "error desconocido"}", "Couldn't prepare yt-dlp: ${e.message ?: "unknown error"}")
             }
         }
     }
@@ -143,9 +143,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearLink() = onLinkChange("")
 
-    // ---------------------------------------------------- enlace desde "Compartir"
+    // ---------------------------------------------------- enlace desde tr("Compartir", "Share")
 
-    /** Llega desde la ventana de compartir al tocar "Abrir". */
+    /** Llega desde la ventana de compartir al tocar tr("Abrir", "Open"). */
     fun openLink(url: String) {
         screen = Screen.Downloader
         downloaderTab = 0
@@ -194,7 +194,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         screen = Screen.Downloader
     }
 
-    /** "Descargar otra versión" desde el historial. */
+    /** tr("Descargar otra versión", "Download another version") desde el historial. */
     fun downloadAgain(item: DlItem) {
         downloaderTab = 0
         onLinkChange(item.url)
@@ -267,7 +267,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun updateYtdlp(thenRetry: Boolean = false) {
         if (ytBusy) return
         ytBusy = true
-        ytStatus = "Buscando actualización…"
+        ytStatus = tr("Buscando actualización…", "Checking for updates…")
         viewModelScope.launch {
             try {
                 val status = withContext(Dispatchers.IO) {
@@ -277,12 +277,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 ytVersion = YoutubeDL.versionName(ctx)
                 ytStatus = when (status) {
                     YoutubeDL.UpdateStatus.DONE -> "yt-dlp actualizado"
-                    YoutubeDL.UpdateStatus.ALREADY_UP_TO_DATE -> "Ya tienes la última versión"
-                    else -> "Listo"
+                    YoutubeDL.UpdateStatus.ALREADY_UP_TO_DATE -> tr("Ya tienes la última versión", "You have the latest version")
+                    else -> tr("Listo", "Done")
                 }
                 if (thenRetry) retry()
             } catch (e: Exception) {
-                ytStatus = "No se pudo actualizar: ${e.message ?: "error de red"}"
+                ytStatus = tr("No se pudo actualizar: ${e.message ?: "error de red"}", "Couldn't update: ${e.message ?: "network error"}")
             } finally {
                 ytBusy = false
             }
@@ -298,7 +298,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ApkUpdateState.Failed("No se pudo descargar la actualización: ${e.message ?: "error de red"}")
+                ApkUpdateState.Failed(tr("No se pudo descargar la actualización: ${e.message ?: "error de red"}", "Couldn't download the update: ${e.message ?: "network error"}"))
             }
             if (apkUpdate is ApkUpdateState.ReadyToInstall) installApk(version)
         }
@@ -308,12 +308,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         try {
             if (!ApkUpdater.install(ctx)) {
                 apkUpdate = ApkUpdateState.ReadyToInstall(version)
-                apkInstallNote = "Activa \"Permitir desde esta fuente\" para Pocket Studio y vuelve a tocar Instalar."
+                apkInstallNote = tr("Activa \"Permitir desde esta fuente\" para Pocket Studio y vuelve a tocar Instalar.", "Turn on \"Allow from this source\" for Pocket Studio and tap Install again.")
             } else {
                 apkInstallNote = null
             }
         } catch (e: Exception) {
-            apkUpdate = ApkUpdateState.Failed("No se pudo abrir el instalador: ${e.message ?: "error desconocido"}")
+            apkUpdate = ApkUpdateState.Failed(tr("No se pudo abrir el instalador: ${e.message ?: "error desconocido"}", "Couldn't open the installer: ${e.message ?: "unknown error"}"))
         }
     }
 

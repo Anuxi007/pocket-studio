@@ -32,12 +32,11 @@ object ApkUpdater {
             val code = conn.responseCode
             if (code == 404) {
                 return@withContext ApkUpdateState.Failed(
-                    "No se pudo comprobar. Si el repositorio es privado o aún no tiene " +
-                        "versiones publicadas, las actualizaciones no están disponibles."
+                    tr("No se pudo comprobar. Si el repositorio es privado o aún no tiene versiones publicadas, las actualizaciones no están disponibles.", "Couldn't check. If the repository is private or has no published releases yet, updates aren't available.")
                 )
             }
             if (code != 200) {
-                return@withContext ApkUpdateState.Failed("GitHub respondió con el código $code.")
+                return@withContext ApkUpdateState.Failed(tr("GitHub respondió con el código $code.", "GitHub responded with code $code."))
             }
             val body = conn.inputStream.bufferedReader().use { it.readText() }
             val releases = JSONArray(body)
@@ -50,7 +49,7 @@ object ApkUpdater {
                 }
             }
             if (latest == null) {
-                return@withContext ApkUpdateState.Failed("Todavía no hay versiones publicadas.")
+                return@withContext ApkUpdateState.Failed(tr("Todavía no hay versiones publicadas.", "There are no published releases yet."))
             }
             val tag = latest.optString("tag_name").removePrefix("v")
             val current = BuildConfig.VERSION_NAME
@@ -67,7 +66,7 @@ object ApkUpdater {
             val url = pickApk(apks) ?: latest.optString("html_url")
             ApkUpdateState.Available(tag, latest.optString("body").trim().take(600), url)
         } catch (e: Exception) {
-            ApkUpdateState.Failed("No se pudo comprobar: ${e.message ?: "error de red"}")
+            ApkUpdateState.Failed(tr("No se pudo comprobar: ${e.message ?: "error de red"}", "Couldn't check: ${e.message ?: "network error"}"))
         }
     }
 
@@ -85,7 +84,7 @@ object ApkUpdater {
                 setRequestProperty("User-Agent", "PocketStudio/${BuildConfig.VERSION_NAME}")
             }
             val code = conn.responseCode
-            if (code !in 200..299) throw IllegalStateException("GitHub respondió con el código $code al bajar el APK.")
+            if (code !in 200..299) throw IllegalStateException(tr("GitHub respondió con el código $code al bajar el APK.", "GitHub responded with code $code when downloading the APK."))
             val total = conn.contentLengthLong
             conn.inputStream.use { input ->
                 file.outputStream().use { out ->
@@ -105,7 +104,7 @@ object ApkUpdater {
                     }
                 }
             }
-            if (file.length() < 1_000_000) throw IllegalStateException("El archivo descargado parece incompleto.")
+            if (file.length() < 1_000_000) throw IllegalStateException(tr("El archivo descargado parece incompleto.", "The downloaded file looks incomplete."))
         }
 
     /**

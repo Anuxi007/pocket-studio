@@ -1,5 +1,6 @@
 package com.anuxi.pocketstudio
 
+import com.anuxi.pocketstudio.data.tr
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -43,7 +44,7 @@ class MainActivity : ComponentActivity() {
         handleLink(intent)
     }
 
-    /** "Abrir" desde la ventana de compartir: llega con el enlace ya listo. */
+    /** tr("Abrir", "Open") desde la ventana de compartir: llega con el enlace ya listo. */
     private fun handleLink(intent: Intent?) {
         intent?.getStringExtra(EXTRA_LINK)?.let { vm.openLink(it) }
         if (intent?.getBooleanExtra(EXTRA_OPEN_DOWNLOADS, false) == true) vm.showDownloads()

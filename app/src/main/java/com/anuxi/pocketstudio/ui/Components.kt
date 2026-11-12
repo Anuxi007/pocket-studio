@@ -1,5 +1,6 @@
 package com.anuxi.pocketstudio.ui
 
+import com.anuxi.pocketstudio.data.tr
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -48,7 +49,7 @@ object Ps {
 
 val LocalReduceMotion = compositionLocalOf { false }
 
-/** Clic con un pequeño efecto de "presionado" (se desactiva con "Reducir animaciones"). */
+/** Clic con un pequeño efecto de "presionado" (se desactiva con tr("Reducir animaciones", "Reduce animations")). */
 fun Modifier.pressable(
     enabled: Boolean = true,
     onClick: () -> Unit,
@@ -174,7 +175,7 @@ fun ScreenHeader(title: String, onBack: (() -> Unit)? = null, trailing: @Composa
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
-            RoundIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Volver", onBack)
+            RoundIconButton(Icons.AutoMirrored.Filled.ArrowBack, tr("Volver", "Back"), onBack)
             Spacer(Modifier.width(12.dp))
         }
         Text(

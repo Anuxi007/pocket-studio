@@ -1,5 +1,6 @@
 package com.anuxi.pocketstudio.editor
 
+import com.anuxi.pocketstudio.data.tr
 import android.app.Application
 import android.graphics.Bitmap
 import android.media.MediaExtractor
@@ -116,7 +117,7 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
         try {
             val info = withContext(decoder) { probe(uri) }
             if (info == null) {
-                busy = "no se pudo leer ese video"
+                busy = tr("no se pudo leer ese video", "couldn't read that video")
                 return
             }
             val l = Layer(newId(), LayerKind.Video, info.name)
@@ -132,7 +133,7 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
             touch(frames = true)
             busy = null
         } catch (e: Exception) {
-            busy = "no se pudo importar: ${e.message}"
+            busy = tr("no se pudo importar: ${e.message}", "couldn't import: ${e.message}")
         }
     }
 
@@ -145,7 +146,7 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
         val l = project?.layer(id) ?: return
         val info = probe(uri)
         if (info == null) {
-            busy = "no se pudo leer ese video"
+            busy = tr("no se pudo leer ese video", "couldn't read that video")
             return
         }
         retrievers.remove(id)?.let { runCatching { it.release() } }

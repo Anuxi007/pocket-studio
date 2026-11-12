@@ -42,8 +42,8 @@ object Tikwm {
     }
 
     private fun blocked(code: Int? = null): TikwmException = TikwmException(
-        "TikWM bloqueó la petición" + (if (code != null) " (HTTP $code)" else "") +
-            ", probablemente por su protección Cloudflare. Prueba con Wi-Fi, o desactiva el motor alternativo en Opciones."
+        tr("TikWM bloqueó la petición", "TikWM blocked the request") + (if (code != null) " (HTTP $code)" else "") +
+            tr(", probablemente por su protección Cloudflare. Prueba con Wi-Fi, o desactiva el motor alternativo en Opciones.", ", probably due to its Cloudflare protection. Try Wi-Fi, or turn off the alternative engine in Settings.")
     )
 
     private fun json(c: HttpURLConnection): JSONObject {
@@ -68,9 +68,9 @@ object Tikwm {
             }
             val msg = o.optString("msg")
             if (msg.contains("limit", ignoreCase = true)) { delay(2000); return@repeat }
-            throw TikwmException("TikWM respondió: ${msg.ifEmpty { "error desconocido" }}")
+            throw TikwmException(tr("TikWM respondió: ${msg.ifEmpty { "error desconocido" }}", "TikWM responded: ${msg.ifEmpty { "unknown error" }}"))
         }
-        throw TikwmException("TikWM está limitando las peticiones. Intenta de nuevo en un momento.")
+        throw TikwmException(tr("TikWM está limitando las peticiones. Intenta de nuevo en un momento.", "TikWM is rate-limiting requests. Try again in a moment."))
     }
 
     suspend fun download(
@@ -94,7 +94,7 @@ object Tikwm {
                 break
             }
         }
-        val url = playUrl ?: throw TikwmException("TikWM tardó demasiado en preparar el video. Intenta de nuevo.")
+        val url = playUrl ?: throw TikwmException(tr("TikWM tardó demasiado en preparar el video. Intenta de nuevo.", "TikWM took too long to prepare the video. Try again."))
 
         val tmp = Ytdlp.tmpDir(context, item.id)
         tmp.deleteRecursively() // con este motor, reanudar empieza de nuevo (el enlace caduca)
@@ -105,7 +105,7 @@ object Tikwm {
         val c = open(url, post = false)
         c.setRequestProperty("Accept", "*/*")
         val code = c.responseCode
-        if (code !in 200..299) throw TikwmException("No se pudo bajar el archivo (HTTP $code). El enlace pudo caducar; reintenta.")
+        if (code !in 200..299) throw TikwmException(tr("No se pudo bajar el archivo (HTTP $code). El enlace pudo caducar; reintenta.", "Couldn't download the file (HTTP $code). The link may have expired; retry."))
         val total = c.contentLengthLong
         c.inputStream.use { input ->
             file.outputStream().use { out ->
@@ -125,7 +125,7 @@ object Tikwm {
                 }
             }
         }
-        if (file.length() == 0L) throw TikwmException("El archivo descargado está vacío.")
+        if (file.length() == 0L) throw TikwmException(tr("El archivo descargado está vacío.", "The downloaded file is empty."))
         Storage.save(context, file, item.folderUri)
     }
 }

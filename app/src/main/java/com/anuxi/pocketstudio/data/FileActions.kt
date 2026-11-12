@@ -14,12 +14,12 @@ object FileActions {
         val view = Intent(Intent.ACTION_VIEW)
             .setDataAndType(Uri.parse(uriStr), item.mime ?: "*/*")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        val intent = if (Prefs(context).askPlayer) Intent.createChooser(view, "Abrir con") else view
+        val intent = if (Prefs(context).askPlayer) Intent.createChooser(view, tr("Abrir con", "Open with")) else view
         try {
             context.startActivity(intent)
         } catch (e: Exception) {
             if (e is ActivityNotFoundException || e is SecurityException) {
-                Toast.makeText(context, "No hay una app para abrir este archivo, o ya no existe.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, tr("No hay una app para abrir este archivo, o ya no existe.", "There's no app to open this file, or it no longer exists."), Toast.LENGTH_LONG).show()
             } else throw e
         }
     }
@@ -46,13 +46,13 @@ object FileActions {
         send.clipData = clip
         send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         try {
-            context.startActivity(Intent.createChooser(send, "Compartir"))
+            context.startActivity(Intent.createChooser(send, tr("Compartir", "Share")))
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(context, "No hay apps para compartir.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, tr("No hay apps para compartir.", "No apps to share with."), Toast.LENGTH_LONG).show()
         }
     }
 
     private fun missing(context: Context) {
-        Toast.makeText(context, "Este archivo ya no está disponible.", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, tr("Este archivo ya no está disponible.", "This file is no longer available."), Toast.LENGTH_LONG).show()
     }
 }

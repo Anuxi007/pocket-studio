@@ -189,10 +189,10 @@ object DownloadManager {
             DlItem(
                 id = "q${System.nanoTime()}",
                 url = url,
-                title = Uri.parse(url).host?.removePrefix("www.") ?: "Descarga rápida",
+                title = Uri.parse(url).host?.removePrefix("www.") ?: tr("Descarga rápida", "Quick download"),
                 thumb = null,
                 kind = "quick",
-                label = "Descarga rápida",
+                label = tr("Descarga rápida", "Quick download"),
             )
         )
     }
@@ -269,7 +269,7 @@ object DownloadManager {
                 val next = _items.value
                     .filter { it.status == ItemStatus.Queued && it.id !in jobs }
                     .minByOrNull { it.createdAt } ?: break
-                update(next.id) { it.copy(status = ItemStatus.Running, infoText = "Preparando…") }
+                update(next.id) { it.copy(status = ItemStatus.Running, infoText = tr("Preparando…", "Preparing…")) }
                 val job = scope.launch(start = CoroutineStart.LAZY) { run(next.id) }
                 jobs[next.id] = job
                 job.start()
@@ -289,7 +289,7 @@ object DownloadManager {
                 val pct = progress.toInt()
                 if (pct != lastPct) {
                     lastPct = pct
-                    val text = if (eta > 0) "$pct % · faltan ${eta} s" else if (pct >= 0) "$pct %" else "Descargando…"
+                    val text = if (eta > 0) "$pct % · faltan ${eta} s" else if (pct >= 0) "$pct %" else tr("Descargando…", "Downloading…")
                     update(id) { it.copy(progress = progress.coerceIn(0f, 100f), infoText = text) }
                 }
             }
@@ -298,7 +298,7 @@ object DownloadManager {
                     Tikwm.download(app, item, onProg)
                 } catch (e: TikwmException) {
                     // TikWM fallo: seguimos con yt-dlp para no dejar la descarga botada.
-                    update(id) { it.copy(label = "yt-dlp (TikWM falló)", progress = 0f, infoText = "Probando con yt-dlp…") }
+                    update(id) { it.copy(label = tr("yt-dlp (TikWM falló)", "yt-dlp (TikWM failed)"), progress = 0f, infoText = tr("Probando con yt-dlp…", "Trying yt-dlp…")) }
                     Ytdlp.download(app, item, onProg)
                 }
             } else Ytdlp.download(app, item, onProg)
@@ -316,7 +316,7 @@ object DownloadManager {
         } catch (e: Exception) {
             val flag = synchronized(lock) { stopping[id] }
             if (flag == null) {
-                val msg = if (e is TikwmException) e.message ?: "Error de TikWM" else {
+                val msg = if (e is TikwmException) e.message ?: tr("Error de TikWM", "TikWM error") else {
                     val err = Errors.classify(e.message ?: e.toString())
                     err.title + ": " + err.text
                 }

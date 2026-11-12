@@ -162,8 +162,8 @@ fun DownloaderTabs(selected: Int, activeCount: Int, onSelect: (Int) -> Unit) {
                 }
             }
         }
-        Tab(0, "Nuevo enlace", 0)
-        Tab(1, "Descargas", activeCount)
+        Tab(0, tr("Nuevo enlace", "New link"), 0)
+        Tab(1, tr("Descargas", "Downloads"), activeCount)
     }
 }
 
@@ -190,7 +190,7 @@ fun ColumnScope.DownloadsTab(vm: MainViewModel, items: List<DlItem>) {
     if (items.isEmpty()) {
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(
-                "Aquí verás tus descargas.\nEmpieza pegando un enlace.",
+                tr("Aquí verás tus descargas.\nEmpieza pegando un enlace.", "Your downloads will show up here.\nStart by pasting a link."),
                 color = Ps.Muted2, fontSize = 15.sp, textAlign = TextAlign.Center, lineHeight = 22.sp,
             )
         }
@@ -202,7 +202,7 @@ fun ColumnScope.DownloadsTab(vm: MainViewModel, items: List<DlItem>) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (!selecting && active.isNotEmpty()) {
-            SectionLabel("En curso")
+            SectionLabel(tr("En curso", "In progress"))
             active.forEach { ActiveRow(it) }
             Spacer(Modifier.height(6.dp))
         }
@@ -211,14 +211,14 @@ fun ColumnScope.DownloadsTab(vm: MainViewModel, items: List<DlItem>) {
                 Column(Modifier.weight(1f)) {
                     if (selecting) {
                         Text("${selected.size} seleccionados", color = Ps.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    } else SectionLabel("Completadas")
+                    } else SectionLabel(tr("Completadas", "Completed"))
                 }
                 if (selecting) {
-                    TextAction("Todos") { selected.clear(); selected.addAll(done.map { it.id }) }
-                    TextAction("Listo", Ps.Muted) { selecting = false; selected.clear() }
+                    TextAction(tr("Todos", "All")) { selected.clear(); selected.addAll(done.map { it.id }) }
+                    TextAction(tr("Listo", "Done"), Ps.Muted) { selecting = false; selected.clear() }
                 } else {
-                    TextAction("Seleccionar") { selecting = true }
-                    TextAction("Limpiar", Ps.Muted) { confirmClear = true }
+                    TextAction(tr("Seleccionar", "Select")) { selecting = true }
+                    TextAction(tr("Limpiar", "Clear"), Ps.Muted) { confirmClear = true }
                 }
             }
             done.forEach { item ->
@@ -265,7 +265,7 @@ fun ColumnScope.DownloadsTab(vm: MainViewModel, items: List<DlItem>) {
                     }
                     if (!selecting) {
                         Spacer(Modifier.width(8.dp))
-                        MiniButton("Más opciones", onClick = { menu = item }) {
+                        MiniButton(tr("Más opciones", "More options"), onClick = { menu = item }) {
                             PsIcon(Icons.Filled.MoreVert, Ps.Text, 20.dp)
                         }
                     }
@@ -278,17 +278,17 @@ fun ColumnScope.DownloadsTab(vm: MainViewModel, items: List<DlItem>) {
     if (selecting) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val chosen = done.filter { it.id in selected }
-            SmallPill("Compartir (${chosen.size})", Modifier.weight(1f), filled = true, enabled = chosen.isNotEmpty()) {
+            SmallPill(tr("Compartir (${chosen.size})", "Share (${chosen.size})"), Modifier.weight(1f), filled = true, enabled = chosen.isNotEmpty()) {
                 FileActions.share(context, chosen)
             }
-            SmallPill("Eliminar (${chosen.size})", Modifier.weight(1f), danger = true, enabled = chosen.isNotEmpty()) {
+            SmallPill(tr("Eliminar (${chosen.size})", "Delete (${chosen.size})"), Modifier.weight(1f), danger = true, enabled = chosen.isNotEmpty()) {
                 confirmDelete = chosen.map { it.id }
             }
         }
     } else if (active.isNotEmpty()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SmallPill("Pausar todo", Modifier.weight(1f)) { DownloadManager.pauseAll() }
-            SmallPill("Cancelar todo", Modifier.weight(1f), danger = true) { DownloadManager.cancelAll() }
+            SmallPill(tr("Pausar todo", "Pause all"), Modifier.weight(1f)) { DownloadManager.pauseAll() }
+            SmallPill(tr("Cancelar todo", "Cancel all"), Modifier.weight(1f), danger = true) { DownloadManager.cancelAll() }
         }
     }
 
@@ -307,15 +307,15 @@ fun ColumnScope.DownloadsTab(vm: MainViewModel, items: List<DlItem>) {
                         )
                     }
                 }
-                MenuRow("Abrir con…", if (vm.askPlayer) "Eliges el reproductor" else "Reproductor predeterminado") {
+                MenuRow(tr("Abrir con…", "Open with…"), if (vm.askPlayer) tr("Eliges el reproductor", "Pick the player") else tr("Reproductor predeterminado", "Default player")) {
                     menu = null; FileActions.open(context, item)
                 }
-                MenuRow("Compartir") { menu = null; FileActions.share(context, listOf(item)) }
-                MenuRow("Descargar otra versión", "Otro formato o calidad") { menu = null; vm.downloadAgain(item) }
-                MenuRow("Quitar del historial", "El archivo se queda en tu celular") {
+                MenuRow(tr("Compartir", "Share")) { menu = null; FileActions.share(context, listOf(item)) }
+                MenuRow(tr("Descargar otra versión", "Download another version"), tr("Otro formato o calidad", "Another format or quality")) { menu = null; vm.downloadAgain(item) }
+                MenuRow(tr("Quitar del historial", "Remove from history"), tr("El archivo se queda en tu celular", "The file stays on your phone")) {
                     menu = null; DownloadManager.remove(listOf(item.id), deleteFile = false)
                 }
-                MenuRow("Eliminar archivo", "Se borra del celular", Danger) {
+                MenuRow(tr("Eliminar archivo", "Delete file"), tr("Se borra del celular", "Deleted from your phone"), Danger) {
                     menu = null; confirmDelete = listOf(item.id)
                 }
             }
@@ -327,13 +327,13 @@ fun ColumnScope.DownloadsTab(vm: MainViewModel, items: List<DlItem>) {
         Dialog(onDismissRequest = { confirmDelete = null }, properties = MenuDialog) {
             SheetColumn {
                 Text(
-                    if (ids.size == 1) "¿Eliminar este archivo?" else "¿Eliminar ${ids.size} archivos?",
+                    if (ids.size == 1) tr("¿Eliminar este archivo?", "Delete this file?") else tr("¿Eliminar ${ids.size} archivos?", "Delete ${ids.size} files?"),
                     color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold,
                 )
-                Text("Se borrarán del celular. No se puede deshacer.", color = Color(0xFFC3C6E8), fontSize = 14.sp, lineHeight = 21.sp)
+                Text(tr("Se borrarán del celular. No se puede deshacer.", "They will be deleted from your phone. This can't be undone."), color = Color(0xFFC3C6E8), fontSize = 14.sp, lineHeight = 21.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SmallPill("Cancelar", Modifier.weight(1f)) { confirmDelete = null }
-                    SmallPill("Eliminar", Modifier.weight(1f), danger = true) {
+                    SmallPill(tr("Cancelar", "Cancel"), Modifier.weight(1f)) { confirmDelete = null }
+                    SmallPill(tr("Eliminar", "Delete"), Modifier.weight(1f), danger = true) {
                         DownloadManager.remove(ids, deleteFile = true)
                         selected.clear(); selecting = false; confirmDelete = null
                     }
@@ -344,14 +344,14 @@ fun ColumnScope.DownloadsTab(vm: MainViewModel, items: List<DlItem>) {
     if (confirmClear) {
         Dialog(onDismissRequest = { confirmClear = false }, properties = MenuDialog) {
             SheetColumn {
-                Text("¿Limpiar completadas?", color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(tr("¿Limpiar completadas?", "Clear completed?"), color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Se quitan de la lista, pero los archivos se quedan en tu celular.",
+                    tr("Se quitan de la lista, pero los archivos se quedan en tu celular.", "They're removed from the list, but the files stay on your phone."),
                     color = Color(0xFFC3C6E8), fontSize = 14.sp, lineHeight = 21.sp,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SmallPill("Cancelar", Modifier.weight(1f)) { confirmClear = false }
-                    SmallPill("Limpiar", Modifier.weight(1f), filled = true) {
+                    SmallPill(tr("Cancelar", "Cancel"), Modifier.weight(1f)) { confirmClear = false }
+                    SmallPill(tr("Limpiar", "Clear"), Modifier.weight(1f), filled = true) {
                         DownloadManager.clearCompleted(); confirmClear = false
                     }
                 }
@@ -388,10 +388,10 @@ private fun ActiveRow(item: DlItem) {
                 Text(item.title, color = Ps.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val pct = item.progress.toInt()
                 val (text, color) = when (item.status) {
-                    ItemStatus.Running -> listOf(item.label, item.infoText.ifEmpty { "Preparando…" }).joinToString(" · ") to Ps.Muted
-                    ItemStatus.Paused -> "Pausada" + (if (pct > 0) " · $pct %" else "") to Ps.Amber
-                    ItemStatus.Queued -> "En cola · espera su turno" to Ps.Muted
-                    ItemStatus.Failed -> (item.error ?: "Falló") to Ps.Amber
+                    ItemStatus.Running -> listOf(item.label, item.infoText.ifEmpty { tr("Preparando…", "Preparing…") }).joinToString(" · ") to Ps.Muted
+                    ItemStatus.Paused -> tr("Pausada", "Paused") + (if (pct > 0) " · $pct %" else "") to Ps.Amber
+                    ItemStatus.Queued -> tr("En cola · espera su turno", "Queued · waiting its turn") to Ps.Muted
+                    ItemStatus.Failed -> (item.error ?: tr("Falló", "Failed")) to Ps.Amber
                     ItemStatus.Done -> "" to Ps.Muted
                 }
                 Text(text, color = color, fontSize = 12.sp, maxLines = if (item.status == ItemStatus.Failed) 3 else 1, overflow = TextOverflow.Ellipsis)
@@ -399,18 +399,18 @@ private fun ActiveRow(item: DlItem) {
             Spacer(Modifier.width(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (item.status) {
-                    ItemStatus.Running -> MiniButton("Pausar", onClick = { DownloadManager.pause(item.id) }) {
+                    ItemStatus.Running -> MiniButton(tr("Pausar", "Pause"), onClick = { DownloadManager.pause(item.id) }) {
                         PsIcon(R.drawable.ic_pause, Ps.Text, 18.dp)
                     }
-                    ItemStatus.Paused -> MiniButton("Reanudar", onClick = { DownloadManager.resume(item.id) }) {
+                    ItemStatus.Paused -> MiniButton(tr("Reanudar", "Resume"), onClick = { DownloadManager.resume(item.id) }) {
                         PsIcon(Icons.Filled.PlayArrow, Ps.Mint, 20.dp)
                     }
-                    ItemStatus.Failed -> MiniButton("Reintentar", onClick = { DownloadManager.resume(item.id) }) {
+                    ItemStatus.Failed -> MiniButton(tr("Reintentar", "Retry"), onClick = { DownloadManager.resume(item.id) }) {
                         PsIcon(Icons.Filled.Refresh, Ps.Mint, 20.dp)
                     }
                     else -> {}
                 }
-                MiniButton("Cancelar", onClick = { DownloadManager.cancel(item.id) }) {
+                MiniButton(tr("Cancelar", "Cancel"), onClick = { DownloadManager.cancel(item.id) }) {
                     PsIcon(Icons.Filled.Close, Danger, 20.dp)
                 }
             }
@@ -445,17 +445,17 @@ fun DuplicateBanner(item: DlItem, onSee: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text("Ya descargaste este video", color = Ps.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        val where = if (item.status == ItemStatus.Done) "${formatDay(item.createdAt)} · ${item.label}" else "Está en tu lista de descargas"
+        Text(tr("Ya descargaste este video", "You already downloaded this video"), color = Ps.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        val where = if (item.status == ItemStatus.Done) "${formatDay(item.createdAt)} · ${item.label}" else tr("Está en tu lista de descargas", "It's in your downloads list")
         Text(
-            "$where. Puedes bajarlo otra vez en otro formato o calidad.",
+            tr("$where. Puedes bajarlo otra vez en otro formato o calidad.", "$where. You can download it again in another format or quality."),
             color = Color(0xFFE3E5F7), fontSize = 13.sp, lineHeight = 19.sp,
         )
-        TextAction("Ver en descargas", blue, onSee)
+        TextAction(tr("Ver en descargas", "View in downloads"), blue, onSee)
     }
 }
 
-/** Fila "Guardar en" con la carpeta de esta descarga. */
+/** Fila tr("Guardar en", "Save to") con la carpeta de esta descarga. */
 @Composable
 fun FolderRow(vm: MainViewModel, onPick: () -> Unit) {
     Row(
@@ -467,15 +467,15 @@ fun FolderRow(vm: MainViewModel, onPick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Guardar en", color = Ps.Muted, fontSize = 12.sp)
+            Text(tr("Guardar en", "Save to"), color = Ps.Muted, fontSize = 12.sp)
             Text(
                 vm.pendingFolderLabel ?: vm.folderLabel,
                 color = Ps.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
-        if (vm.pendingFolderUri != null) TextAction("Restablecer", Ps.Muted) { vm.resetDownloadFolder() }
-        TextAction("Cambiar", onClick = onPick)
+        if (vm.pendingFolderUri != null) TextAction(tr("Restablecer", "Reset"), Ps.Muted) { vm.resetDownloadFolder() }
+        TextAction(tr("Cambiar", "Change"), onClick = onPick)
     }
 }
 
@@ -490,20 +490,20 @@ fun CompatWarningDialog(
 ) {
     Dialog(onDismissRequest = onDismiss, properties = MenuDialog) {
         SheetColumn {
-            Text("Puede no reproducirse bien", color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(tr("Puede no reproducirse bien", "May not play well"), color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text(
                 "${option.label} · ${option.codecName} · ${option.container}",
                 color = Ps.Amber, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
             )
-            Text(option.warning ?: "Tu celular podría no reproducirlo bien.", color = Color(0xFFE3E5F7), fontSize = 14.sp, lineHeight = 21.sp)
+            Text(option.warning ?: tr("Tu celular podría no reproducirlo bien.", "Your phone may not play it well."), color = Color(0xFFE3E5F7), fontSize = 14.sp, lineHeight = 21.sp)
             Text(
-                "Puedes descargarlo igual, por ejemplo para verlo en otro dispositivo.",
+                tr("Puedes descargarlo igual, por ejemplo para verlo en otro dispositivo.", "You can still download it, for example to watch on another device."),
                 color = Color(0xFFC3C6E8), fontSize = 13.sp, lineHeight = 19.sp,
             )
             if (recommended != null) {
-                MintButton("Descargar ${recommended.label} ${recommended.codecName} · ${formatSize(recommended.sizeBytes)}") { onRecommended() }
+                MintButton(tr("Descargar ${recommended.label} ${recommended.codecName} · ${formatSize(recommended.sizeBytes)}", "Download ${recommended.label} ${recommended.codecName} · ${formatSize(recommended.sizeBytes)}")) { onRecommended() }
             }
-            OutlineButton("Descargar ${option.label} de todos modos") { onAnyway() }
+            OutlineButton(tr("Descargar ${option.label} de todos modos", "Download ${option.label} anyway")) { onAnyway() }
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.anuxi.pocketstudio
 
+import com.anuxi.pocketstudio.data.tr
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -67,11 +68,11 @@ class DownloadService : Service() {
             when (item.status) {
                 ItemStatus.Done -> notify(
                     DownloadManager.resultNotificationId(item.id),
-                    resultNotification("Descarga lista", "${item.title}\nGuardado en ${item.savedWhere ?: "tu carpeta"}"),
+                    resultNotification(tr("Descarga lista", "Download ready"), tr("${item.title}\nGuardado en ${item.savedWhere ?: "tu carpeta"}", "${item.title}\nSaved to ${item.savedWhere ?: "your folder"}")),
                 )
                 ItemStatus.Failed -> notify(
                     DownloadManager.resultNotificationId(item.id),
-                    resultNotification("No se pudo descargar", "${item.title}\n${item.error ?: ""}"),
+                    resultNotification(tr("No se pudo descargar", "Couldn't download"), "${item.title}\n${item.error ?: ""}"),
                 )
                 ItemStatus.Paused -> notify(DownloadManager.pausedNotificationId(item.id), pausedNotification(item))
                 else -> {}
@@ -96,10 +97,10 @@ class DownloadService : Service() {
     private fun createChannels() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_PROGRESS, "Descargas en curso", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(CHANNEL_PROGRESS, tr("Descargas en curso", "Downloads in progress"), NotificationManager.IMPORTANCE_LOW)
         )
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_RESULT, "Descargas terminadas", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(CHANNEL_RESULT, tr("Descargas terminadas", "Finished downloads"), NotificationManager.IMPORTANCE_DEFAULT)
         )
     }
 
@@ -131,23 +132,23 @@ class DownloadService : Service() {
             .setContentIntent(openAppIntent())
         val running = active.filter { it.status == ItemStatus.Running }
         when {
-            active.isEmpty() -> builder.setContentTitle("Descargando").setProgress(0, 0, true)
+            active.isEmpty() -> builder.setContentTitle(tr("Descargando", "Downloading")).setProgress(0, 0, true)
             active.size == 1 -> {
                 val item = active[0]
-                builder.setContentTitle(if (item.status == ItemStatus.Queued) "En cola" else "Descargando")
+                builder.setContentTitle(if (item.status == ItemStatus.Queued) tr("En cola", "Queued") else tr("Descargando", "Downloading"))
                     .setContentText(listOf(item.title, item.infoText).filter { it.isNotEmpty() }.joinToString(" · "))
                 if (item.progress > 0f) builder.setProgress(100, item.progress.toInt(), false)
                 else builder.setProgress(0, 0, true)
-                builder.addAction(0, "Pausar", action(ACTION_PAUSE, item.id, 10 + (item.id.hashCode() and 0xFFF)))
-                    .addAction(0, "Cancelar", action(ACTION_CANCEL, item.id, 5000 + (item.id.hashCode() and 0xFFF)))
+                builder.addAction(0, tr("Pausar", "Pause"), action(ACTION_PAUSE, item.id, 10 + (item.id.hashCode() and 0xFFF)))
+                    .addAction(0, tr("Cancelar", "Cancel"), action(ACTION_CANCEL, item.id, 5000 + (item.id.hashCode() and 0xFFF)))
             }
             else -> {
                 val avg = if (running.isEmpty()) 0 else (running.sumOf { it.progress.toDouble() } / running.size).toInt()
-                builder.setContentTitle("Descargando ${active.size} archivos")
-                    .setContentText(running.firstOrNull()?.title ?: "En cola")
+                builder.setContentTitle(tr("Descargando ${active.size} archivos", "Downloading ${active.size} files"))
+                    .setContentText(running.firstOrNull()?.title ?: tr("En cola", "Queued"))
                     .setProgress(100, avg, false)
-                    .addAction(0, "Pausar todo", action(ACTION_PAUSE_ALL, null, 1))
-                    .addAction(0, "Cancelar todo", action(ACTION_CANCEL_ALL, null, 2))
+                    .addAction(0, tr("Pausar todo", "Pause all"), action(ACTION_PAUSE_ALL, null, 1))
+                    .addAction(0, tr("Cancelar todo", "Cancel all"), action(ACTION_CANCEL_ALL, null, 2))
             }
         }
         return builder.build()
@@ -156,12 +157,12 @@ class DownloadService : Service() {
     private fun pausedNotification(item: DlItem): Notification =
         NotificationCompat.Builder(this, CHANNEL_RESULT)
             .setSmallIcon(R.drawable.ic_download)
-            .setContentTitle("Descarga en pausa")
+            .setContentTitle(tr("Descarga en pausa", "Download paused"))
             .setContentText(item.title)
             .setOnlyAlertOnce(true)
             .setContentIntent(openAppIntent())
-            .addAction(0, "Reanudar", action(ACTION_RESUME, item.id, 10000 + (item.id.hashCode() and 0xFFF)))
-            .addAction(0, "Cancelar", action(ACTION_CANCEL, item.id, 5000 + (item.id.hashCode() and 0xFFF)))
+            .addAction(0, tr("Reanudar", "Resume"), action(ACTION_RESUME, item.id, 10000 + (item.id.hashCode() and 0xFFF)))
+            .addAction(0, tr("Cancelar", "Cancel"), action(ACTION_CANCEL, item.id, 5000 + (item.id.hashCode() and 0xFFF)))
             .build()
 
     private fun resultNotification(title: String, text: String): Notification =

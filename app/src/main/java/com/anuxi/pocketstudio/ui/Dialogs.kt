@@ -1,5 +1,6 @@
 package com.anuxi.pocketstudio.ui
 
+import com.anuxi.pocketstudio.data.tr
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,10 +54,9 @@ fun WelcomeDialog(vm: MainViewModel) {
     var checked by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = {}, properties = WideDialog) {
         SheetColumn {
-            Text("Bienvenido a Pocket Studio", color = Ps.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(tr("Bienvenido a Pocket Studio", "Welcome to Pocket Studio"), color = Ps.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text(
-                "Descarga video o audio a partir de un enlace y guárdalo en tu celular. " +
-                    "Es una versión alpha: puede tener errores.",
+                tr("Descarga video o audio a partir de un enlace y guárdalo en tu celular. Es una versión alpha: puede tener errores.", "Download video or audio from a link and save it on your phone. This is an alpha version: it may have bugs."),
                 color = Color(0xFFC3C6E8), fontSize = 15.sp, lineHeight = 22.sp,
             )
             Row(verticalAlignment = Alignment.Top) {
@@ -70,12 +70,12 @@ fun WelcomeDialog(vm: MainViewModel) {
                     ),
                 )
                 Text(
-                    "Entiendo que debo usar la app solo con contenido propio, libre o con permiso.",
+                    tr("Entiendo que debo usar la app solo con contenido propio, libre o con permiso.", "I understand I must use the app only with my own content, free content or with permission."),
                     color = Color(0xFFC3C6E8), fontSize = 13.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(top = 12.dp),
                 )
             }
-            MintButton("Entendido", enabled = checked) { vm.acceptWelcome() }
+            MintButton(tr("Entendido", "Got it"), enabled = checked) { vm.acceptWelcome() }
         }
     }
 }
@@ -112,7 +112,7 @@ fun ShareSheet(url: String, duplicate: Boolean, onQuick: () -> Unit, onOpen: () 
                 }
                 if (duplicate) {
                     Text(
-                        "Ya descargaste este enlace. Puedes bajarlo otra vez si quieres otra versión.",
+                        tr("Ya descargaste este enlace. Puedes bajarlo otra vez si quieres otra versión.", "You already downloaded this link. You can download it again if you want another version."),
                         color = Ps.Amber, fontSize = 13.sp, lineHeight = 19.sp,
                     )
                 }
@@ -128,11 +128,10 @@ fun ShareSheet(url: String, duplicate: Boolean, onQuick: () -> Unit, onOpen: () 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         PsIcon(R.drawable.ic_bolt, Ps.OnMint, 20.dp)
                         Spacer(Modifier.width(8.dp))
-                        Text("Descarga rápida", color = Ps.OnMint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Descarga rápida", "Quick download"), color = Ps.OnMint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                     Text(
-                        "Baja el mejor formato que tu celular puede reproducir y lo guarda en tu carpeta. " +
-                            "Verás el progreso en la notificación.",
+                        tr("Baja el mejor formato que tu celular puede reproducir y lo guarda en tu carpeta. Verás el progreso en la notificación.", "Downloads the best format your phone can play and saves it to your folder. You'll see progress in the notification."),
                         color = Ps.OnMint.copy(alpha = 0.8f), fontSize = 13.sp, lineHeight = 19.sp,
                     )
                 }
@@ -148,10 +147,10 @@ fun ShareSheet(url: String, duplicate: Boolean, onQuick: () -> Unit, onOpen: () 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         PsIcon(R.drawable.ic_open, Ps.Text, 20.dp)
                         Spacer(Modifier.width(8.dp))
-                        Text("Abrir", color = Ps.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Abrir", "Open"), color = Ps.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                     Text(
-                        "Abre la app con el enlace ya pegado para elegir formato y calidad.",
+                        tr("Abre la app con el enlace ya pegado para elegir formato y calidad.", "Opens the app with the link already pasted so you can choose format and quality."),
                         color = Ps.Muted, fontSize = 13.sp, lineHeight = 19.sp,
                     )
                 }

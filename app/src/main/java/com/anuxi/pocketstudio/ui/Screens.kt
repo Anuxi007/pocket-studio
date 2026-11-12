@@ -140,14 +140,14 @@ private fun ColumnScope.NewLinkTab(vm: MainViewModel, items: List<DlItem>) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Enlace del video",
+                    tr("Enlace del video", "Video link"),
                     color = Ps.Muted,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    "Pegar",
+                    tr("Pegar", "Paste"),
                     color = Ps.Mint,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -160,7 +160,7 @@ private fun ColumnScope.NewLinkTab(vm: MainViewModel, items: List<DlItem>) {
                 value = vm.link,
                 onValueChange = vm::onLinkChange,
                 singleLine = true,
-                placeholder = { Text("Pega el enlace aquí", color = Ps.Muted2) },
+                placeholder = { Text(tr("Pega el enlace aquí", "Paste the link here"), color = Ps.Muted2) },
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -178,7 +178,7 @@ private fun ColumnScope.NewLinkTab(vm: MainViewModel, items: List<DlItem>) {
         when (val s = vm.info) {
             InfoState.Idle -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
-                    "Pega un enlace de video para empezar.",
+                    tr("Pega un enlace de video para empezar.", "Paste a video link to get started."),
                     color = Ps.Muted2,
                     fontSize = 15.sp,
                     textAlign = TextAlign.Center,
@@ -188,7 +188,7 @@ private fun ColumnScope.NewLinkTab(vm: MainViewModel, items: List<DlItem>) {
             InfoState.Loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     CircularProgressIndicator(color = Ps.Mint)
-                    Text("Buscando video…", color = Ps.Muted, fontSize = 15.sp)
+                    Text(tr("Buscando video…", "Looking up video…"), color = Ps.Muted, fontSize = 15.sp)
                 }
             }
 
@@ -201,7 +201,7 @@ private fun ColumnScope.NewLinkTab(vm: MainViewModel, items: List<DlItem>) {
                         }
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("¿Qué quieres descargar?", color = Ps.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(tr("¿Qué quieres descargar?", "What do you want to download?"), color = Ps.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         MintButton(
                             "Video",
                             iconRes = R.drawable.ic_video,
@@ -210,7 +210,7 @@ private fun ColumnScope.NewLinkTab(vm: MainViewModel, items: List<DlItem>) {
                         OutlineButton("Audio", iconRes = R.drawable.ic_music) { vm.go(Screen.Audio) }
                         if (s.videoOptions.isEmpty()) {
                             Text(
-                                "Este enlace solo tiene audio.",
+                                tr("Este enlace solo tiene audio.", "This link only has audio."),
                                 color = Ps.Muted2,
                                 fontSize = 13.sp,
                                 textAlign = TextAlign.Center,
@@ -277,7 +277,7 @@ private fun VideoCard(meta: VideoMeta) {
                 overflow = TextOverflow.Ellipsis,
             )
             val dur = formatDuration(meta.durationSec)
-            if (dur.isNotEmpty()) Text("Duración $dur", color = Ps.Muted, fontSize = 13.sp)
+            if (dur.isNotEmpty()) Text(tr("Duración $dur", "Duration $dur"), color = Ps.Muted, fontSize = 13.sp)
         }
     }
 }
@@ -307,7 +307,7 @@ fun ErrorCard(error: AppError) {
             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ps.Card).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Detalles técnicos", color = Ps.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(tr("Detalles técnicos", "Technical details"), color = Ps.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 error.detail,
                 color = Color(0xFFC3C6E8),
@@ -316,7 +316,7 @@ fun ErrorCard(error: AppError) {
                 fontFamily = FontFamily.Monospace,
             )
             Text(
-                "Copiar detalles",
+                tr("Copiar detalles", "Copy details"),
                 color = Ps.Text,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -367,11 +367,11 @@ fun OptionRow(
                 )
                 if (recommended) {
                     Spacer(Modifier.width(8.dp))
-                    Badge("Recomendado", Ps.Mint, Ps.OnMint)
+                    Badge(tr("Recomendado", "Recommended"), Ps.Mint, Ps.OnMint)
                 }
                 if (warning) {
                     Spacer(Modifier.width(8.dp))
-                    Badge("Puede fallar", Ps.Amber.copy(alpha = 0.16f), Ps.Amber)
+                    Badge(tr("Puede fallar", "May not play"), Ps.Amber.copy(alpha = 0.16f), Ps.Amber)
                 }
             }
             Text(subtitle, color = Color(0xFFC3C6E8), fontSize = 13.sp)
@@ -417,14 +417,14 @@ fun VideoScreen(vm: MainViewModel) {
         }
         FolderRow(vm) { picker.launch(null) }
         Text(
-            "Incluye el mejor audio compatible (AAC)",
+            tr("Incluye el mejor audio compatible (AAC)", "Includes the best compatible audio (AAC)"),
             color = Ps.Muted,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
         MintButton(
-            text = if (selected != null) "Descargar ${selected.label} · ${formatSize(selected.sizeBytes)}" else "Elige una opción",
+            text = if (selected != null) tr("Descargar ${selected.label} · ${formatSize(selected.sizeBytes)}", "Download ${selected.label} · ${formatSize(selected.sizeBytes)}") else tr("Elige una opción", "Choose an option"),
             iconRes = R.drawable.ic_download,
             enabled = selected != null,
         ) {
@@ -460,7 +460,7 @@ fun AudioScreen(vm: MainViewModel) {
         ScreenHeader("Audio", onBack = vm::back)
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionLabel("Formato")
+            SectionLabel(tr("Formato", "Format"))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AudioFmt.entries.forEach { f ->
                     val sel = vm.audioFormat == f
@@ -479,7 +479,7 @@ fun AudioScreen(vm: MainViewModel) {
                         Text(f.desc, color = Color(0xFFC3C6E8), fontSize = 12.sp)
                         if (f == AudioFmt.AAC) {
                             Spacer(Modifier.height(2.dp))
-                            Badge("Recomendado", Ps.Mint, Ps.OnMint)
+                            Badge(tr("Recomendado", "Recommended"), Ps.Mint, Ps.OnMint)
                         }
                     }
                 }
@@ -487,7 +487,7 @@ fun AudioScreen(vm: MainViewModel) {
         }
 
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionLabel("Calidad")
+            SectionLabel(tr("Calidad", "Quality"))
             AudioQuality.entries.forEach { q ->
                 OptionRow(
                     title = q.label,
@@ -501,7 +501,7 @@ fun AudioScreen(vm: MainViewModel) {
 
         FolderRow(vm) { picker.launch(null) }
         MintButton(
-            text = "Descargar ${vm.audioFormat.label} · ${formatSize(sizeFor(vm.audioQuality))}",
+            text = tr("Descargar ${vm.audioFormat.label} · ${formatSize(sizeFor(vm.audioQuality))}", "Download ${vm.audioFormat.label} · ${formatSize(sizeFor(vm.audioQuality))}"),
             iconRes = R.drawable.ic_download,
             enabled = ready != null,
         ) { vm.startAudioDownload() }
@@ -561,18 +561,18 @@ fun SettingsScreen(vm: MainViewModel) {
 
         // --- yt-dlp
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionLabel("Componentes")
+            SectionLabel(tr("Componentes", "Components"))
             SettingsCard {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("yt-dlp", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Text(
-                            vm.ytVersion?.let { "Versión $it" } ?: "Preparando…",
+                            vm.ytVersion?.let { tr("Versión $it", "Version $it") } ?: tr("Preparando…", "Preparing…"),
                             color = Ps.Mint,
                             fontSize = 13.sp,
                         )
                     }
-                    SmallButton(if (vm.ytBusy) "Buscando…" else "Actualizar", enabled = !vm.ytBusy) {
+                    SmallButton(if (vm.ytBusy) tr("Buscando…", "Checking…") else tr("Actualizar", "Update"), enabled = !vm.ytBusy) {
                         vm.updateYtdlp()
                     }
                 }
@@ -581,30 +581,30 @@ fun SettingsScreen(vm: MainViewModel) {
                 }
                 HorizontalDivider(color = Ps.Line.copy(alpha = 0.5f))
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Python y FFmpeg", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    Text("Incluidos en la app", color = Ps.Muted, fontSize = 13.sp)
+                    Text(tr("Python y FFmpeg", "Python and FFmpeg"), color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text(tr("Incluidos en la app", "Bundled with the app"), color = Ps.Muted, fontSize = 13.sp)
                 }
             }
         }
 
         // --- la app
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionLabel("Aplicación")
+            SectionLabel(tr("Aplicación", "App"))
             SettingsCard {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("Pocket Studio", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Versión ${BuildConfig.VERSION_NAME} (alpha)", color = Ps.Muted, fontSize = 13.sp)
+                        Text(tr("Versión ${BuildConfig.VERSION_NAME} (alpha)", "Version ${BuildConfig.VERSION_NAME} (alpha)"), color = Ps.Muted, fontSize = 13.sp)
                     }
                     SmallButton(
-                        if (vm.apkUpdate == ApkUpdateState.Checking) "Buscando…" else "Buscar actualización",
+                        if (vm.apkUpdate == ApkUpdateState.Checking) tr("Buscando…", "Checking…") else tr("Buscar actualización", "Check for updates"),
                         enabled = vm.apkUpdate != ApkUpdateState.Checking,
                     ) { vm.checkApkUpdate() }
                 }
                 when (val u = vm.apkUpdate) {
                     ApkUpdateState.Idle, ApkUpdateState.Checking -> {}
                     is ApkUpdateState.UpToDate -> Text(
-                        "Ya tienes la última versión (${u.version}).",
+                        tr("Ya tienes la última versión (${u.version}).", "You have the latest version (${u.version})."),
                         color = Ps.Mint, fontSize = 13.sp,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
                     )
@@ -619,20 +619,20 @@ fun SettingsScreen(vm: MainViewModel) {
                         Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Text("Hay una versión nueva: ${u.version}", color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(tr("Hay una versión nueva: ${u.version}", "New version available: ${u.version}"), color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         if (u.notes.isNotEmpty()) Text(u.notes, color = Ps.Muted, fontSize = 13.sp, lineHeight = 19.sp)
                         if (u.url.endsWith(".apk")) {
                             Text(
-                                "Se descarga dentro de la app y luego Android te pedirá confirmar la instalación.",
+                                tr("Se descarga dentro de la app y luego Android te pedirá confirmar la instalación.", "It downloads inside the app, then Android will ask you to confirm the install."),
                                 color = Ps.Muted2, fontSize = 12.sp, lineHeight = 18.sp,
                             )
-                            SmallButton("Descargar e instalar ${u.version}") { vm.downloadApk(u.version, u.url) }
+                            SmallButton(tr("Descargar e instalar ${u.version}", "Download and install ${u.version}")) { vm.downloadApk(u.version, u.url) }
                         } else {
                             Text(
-                                "Se abrirá GitHub para descargar el APK. Luego ábrelo para instalar la actualización.",
+                                tr("Se abrirá GitHub para descargar el APK. Luego ábrelo para instalar la actualización.", "GitHub will open to download the APK. Then open it to install the update."),
                                 color = Ps.Muted2, fontSize = 12.sp, lineHeight = 18.sp,
                             )
-                            SmallButton("Abrir GitHub") {
+                            SmallButton(tr("Abrir GitHub", "Open GitHub")) {
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url)))
                             }
                         }
@@ -643,7 +643,7 @@ fun SettingsScreen(vm: MainViewModel) {
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            "Descargando ${u.version}… ${(u.progress * 100).toInt()} %",
+                            tr("Descargando ${u.version}… ${(u.progress * 100).toInt()} %", "Downloading ${u.version}… ${(u.progress * 100).toInt()} %"),
                             color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                         )
                         LinearProgressIndicator(
@@ -658,11 +658,11 @@ fun SettingsScreen(vm: MainViewModel) {
                         Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Text("Lista para instalar: ${u.version}", color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(tr("Lista para instalar: ${u.version}", "Ready to install: ${u.version}"), color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         vm.apkInstallNote?.let {
                             Text(it, color = Ps.Amber, fontSize = 13.sp, lineHeight = 19.sp)
                         }
-                        SmallButton("Instalar") { vm.installApk(u.version) }
+                        SmallButton(tr("Instalar", "Install")) { vm.installApk(u.version) }
                     }
                 }
             }
@@ -670,7 +670,7 @@ fun SettingsScreen(vm: MainViewModel) {
 
         // --- descargas
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionLabel("Descargas")
+            SectionLabel(tr("Descargas", "Downloads"))
             SettingsCard {
                 Row(
                     Modifier
@@ -679,13 +679,13 @@ fun SettingsScreen(vm: MainViewModel) {
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Carpeta de descargas", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text(tr("Carpeta de descargas", "Downloads folder"), color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                     Text(vm.folderLabel, color = Ps.Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
                 }
                 if (vm.folderLabel != Storage.DEFAULT_LABEL) {
                     HorizontalDivider(color = Ps.Line.copy(alpha = 0.5f))
                     Text(
-                        "Usar la carpeta predeterminada",
+                        tr("Usar la carpeta predeterminada", "Use the default folder"),
                         color = Ps.Mint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.fillMaxWidth().pressable { vm.resetFolder() }.padding(16.dp),
                     )
@@ -700,8 +700,8 @@ fun SettingsScreen(vm: MainViewModel) {
             SettingsCard {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-                        Text("Motor alternativo (TikWM)", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                        Text("Descarga el original en mejor calidad", color = Ps.Muted, fontSize = 13.sp)
+                        Text(tr("Motor alternativo (TikWM)", "Alternative engine (TikWM)"), color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        Text(tr("Descarga el original en mejor calidad", "Downloads the original in best quality"), color = Ps.Muted, fontSize = 13.sp)
                     }
                     Switch(
                         checked = vm.tikwmEnabled,
@@ -715,8 +715,7 @@ fun SettingsScreen(vm: MainViewModel) {
                     )
                 }
                 Text(
-                    "Si lo activas, el enlace de cada video de TikTok se envía a tikwm.com, un servicio de terceros " +
-                        "no oficial que puede fallar o cambiar. Si falla, verás el motivo. Al pausar, esa descarga empieza de nuevo.",
+                    tr("Si lo activas, el enlace de cada video de TikTok se envía a tikwm.com, un servicio de terceros no oficial que puede fallar o cambiar. Si falla, verás el motivo. Al pausar, esa descarga empieza de nuevo.", "If you turn it on, each TikTok video link is sent to tikwm.com, an unofficial third-party service that may fail or change. If it fails, you'll see why. Pausing restarts that download."),
                     color = Ps.Amber, fontSize = 12.sp, lineHeight = 18.sp,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
                 )
@@ -726,16 +725,14 @@ fun SettingsScreen(vm: MainViewModel) {
         if (confirmTikwm) {
             androidx.compose.ui.window.Dialog(onDismissRequest = { confirmTikwm = false }) {
                 SheetColumn {
-                    Text("¿Activar TikWM?", color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(tr("¿Activar TikWM?", "Turn on TikWM?"), color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Para bajar el original de TikTok, la app enviará el enlace de cada video a tikwm.com, " +
-                            "un servicio de terceros no oficial. Puede fallar o cambiar; si falla, se usa yt-dlp. " +
-                            "Puedes apagarlo cuando quieras.",
+                        tr("Para bajar el original de TikTok, la app enviará el enlace de cada video a tikwm.com, un servicio de terceros no oficial. Puede fallar o cambiar; si falla, se usa yt-dlp. Puedes apagarlo cuando quieras.", "To download the TikTok original, the app will send each video link to tikwm.com, an unofficial third-party service. It may fail or change; if it fails, yt-dlp is used. You can turn it off anytime."),
                         color = Color(0xFFC3C6E8), fontSize = 14.sp, lineHeight = 21.sp,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SmallPill("Cancelar", Modifier.weight(1f)) { confirmTikwm = false }
-                        SmallPill("Activar", Modifier.weight(1f), filled = true) {
+                        SmallPill(tr("Cancelar", "Cancel"), Modifier.weight(1f)) { confirmTikwm = false }
+                        SmallPill(tr("Activar", "Turn on"), Modifier.weight(1f), filled = true) {
                             vm.changeTikwm(true); confirmTikwm = false
                         }
                     }
@@ -746,13 +743,13 @@ fun SettingsScreen(vm: MainViewModel) {
         // --- cola e historial
         var confirmHistory by remember { mutableStateOf(false) }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionLabel("Cola e historial")
+            SectionLabel(tr("Cola e historial", "Queue and history"))
             SettingsCard {
                 Row(
                     Modifier.fillMaxWidth().pressable { vm.changeMaxParallel(if (vm.maxParallel >= 3) 1 else vm.maxParallel + 1) }.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Descargas simultáneas", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text(tr("Descargas simultáneas", "Simultaneous downloads"), color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                     Text("${vm.maxParallel}", color = Ps.Mint, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
                 HorizontalDivider(color = Ps.Line.copy(alpha = 0.5f))
@@ -760,30 +757,30 @@ fun SettingsScreen(vm: MainViewModel) {
                     Modifier.fillMaxWidth().pressable { vm.changeAskPlayer(!vm.askPlayer) }.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Abrir con", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    Text(if (vm.askPlayer) "Preguntar siempre" else "Predeterminado", color = Ps.Muted, fontSize = 13.sp)
+                    Text(tr("Abrir con", "Open with"), color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text(if (vm.askPlayer) tr("Preguntar siempre", "Always ask") else tr("Predeterminado", "Default"), color = Ps.Muted, fontSize = 13.sp)
                 }
                 HorizontalDivider(color = Ps.Line.copy(alpha = 0.5f))
                 Row(
                     Modifier.fillMaxWidth().pressable { confirmHistory = true }.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Borrar historial", color = Color(0xFFFF8A8A), fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    Text("Los archivos se quedan", color = Ps.Muted, fontSize = 13.sp)
+                    Text(tr("Borrar historial", "Clear history"), color = Color(0xFFFF8A8A), fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text(tr("Los archivos se quedan", "Files are kept"), color = Ps.Muted, fontSize = 13.sp)
                 }
             }
         }
         if (confirmHistory) {
             androidx.compose.ui.window.Dialog(onDismissRequest = { confirmHistory = false }) {
                 SheetColumn {
-                    Text("¿Borrar el historial?", color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(tr("¿Borrar el historial?", "Clear history?"), color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Se quitan las descargas completadas de la lista. Los archivos se quedan en tu celular.",
+                        tr("Se quitan las descargas completadas de la lista. Los archivos se quedan en tu celular.", "Completed downloads are removed from the list. The files stay on your phone."),
                         color = Color(0xFFC3C6E8), fontSize = 14.sp, lineHeight = 21.sp,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SmallPill("Cancelar", Modifier.weight(1f)) { confirmHistory = false }
-                        SmallPill("Borrar", Modifier.weight(1f), filled = true) {
+                        SmallPill(tr("Cancelar", "Cancel"), Modifier.weight(1f)) { confirmHistory = false }
+                        SmallPill(tr("Borrar", "Clear"), Modifier.weight(1f), filled = true) {
                             DownloadManager.clearCompleted(); confirmHistory = false
                         }
                     }
@@ -793,10 +790,10 @@ fun SettingsScreen(vm: MainViewModel) {
 
         // --- apariencia
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionLabel("Apariencia")
+            SectionLabel(tr("Apariencia", "Appearance"))
             SettingsCard {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Reducir animaciones", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text(tr("Reducir animaciones", "Reduce animations"), color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                     Switch(
                         checked = vm.reduceMotion,
                         onCheckedChange = vm::changeReduceMotion,
@@ -814,11 +811,9 @@ fun SettingsScreen(vm: MainViewModel) {
         // --- acerca de
         SettingsCard {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Uso responsable", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(tr("Uso responsable", "Responsible use"), color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Pocket Studio es gratis y de código abierto (GPL-3.0). Úsala solo con contenido " +
-                        "propio, libre o con permiso. Descargar contenido puede ir contra los términos " +
-                        "de algunas plataformas.",
+                    tr("Pocket Studio es gratis y de código abierto (GPL-3.0). Úsala solo con contenido propio, libre o con permiso. Descargar contenido puede ir contra los términos de algunas plataformas.", "Pocket Studio is free and open source (GPL-3.0). Use it only with your own content, free content or with permission. Downloading content may go against some platforms' terms."),
                     color = Ps.Muted, fontSize = 13.sp, lineHeight = 19.sp,
                 )
                 Text("github.com/Anuxi007/pocket-studio", color = Ps.Muted2, fontSize = 12.sp)

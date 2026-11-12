@@ -196,7 +196,7 @@ object Ytdlp {
         val file = tmp.listFiles()
             ?.filter { it.isFile && !it.name.endsWith(".part") && !it.name.endsWith(".ytdl") && !it.name.endsWith(".temp") }
             ?.maxByOrNull { it.length() }
-            ?: throw YoutubeDLException("No se generó ningún archivo")
+            ?: throw YoutubeDLException(tr("No se generó ningún archivo", "No file was produced"))
         Storage.save(context, file, item.folderUri)
     }
 }
