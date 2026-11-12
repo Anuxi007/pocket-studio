@@ -293,7 +293,15 @@ object DownloadManager {
                     update(id) { it.copy(progress = progress.coerceIn(0f, 100f), infoText = text) }
                 }
             }
-            val saved = if (useTikwm) Tikwm.download(app, item, onProg) else Ytdlp.download(app, item, onProg)
+            val saved = if (useTikwm) {
+                try {
+                    Tikwm.download(app, item, onProg)
+                } catch (e: TikwmException) {
+                    // TikWM fallo: seguimos con yt-dlp para no dejar la descarga botada.
+                    update(id) { it.copy(label = "yt-dlp (TikWM falló)", progress = 0f, infoText = "Probando con yt-dlp…") }
+                    Ytdlp.download(app, item, onProg)
+                }
+            } else Ytdlp.download(app, item, onProg)
             update(id) {
                 it.copy(
                     status = ItemStatus.Done, progress = 100f, infoText = "",

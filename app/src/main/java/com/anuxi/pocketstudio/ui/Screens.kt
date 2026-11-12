@@ -639,6 +639,7 @@ fun SettingsScreen(vm: MainViewModel) {
         }
 
         // --- TikTok (motor alternativo)
+        var confirmTikwm by remember { mutableStateOf(false) }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionLabel("TikTok")
             SettingsCard {
@@ -649,7 +650,7 @@ fun SettingsScreen(vm: MainViewModel) {
                     }
                     Switch(
                         checked = vm.tikwmEnabled,
-                        onCheckedChange = vm::changeTikwm,
+                        onCheckedChange = { if (it) confirmTikwm = true else vm.changeTikwm(false) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Ps.OnMint,
                             checkedTrackColor = Ps.Mint,
@@ -664,6 +665,26 @@ fun SettingsScreen(vm: MainViewModel) {
                     color = Ps.Amber, fontSize = 12.sp, lineHeight = 18.sp,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
                 )
+            }
+        }
+
+        if (confirmTikwm) {
+            androidx.compose.ui.window.Dialog(onDismissRequest = { confirmTikwm = false }) {
+                SheetColumn {
+                    Text("¿Activar TikWM?", color = Ps.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Para bajar el original de TikTok, la app enviará el enlace de cada video a tikwm.com, " +
+                            "un servicio de terceros no oficial. Puede fallar o cambiar; si falla, se usa yt-dlp. " +
+                            "Puedes apagarlo cuando quieras.",
+                        color = Color(0xFFC3C6E8), fontSize = 14.sp, lineHeight = 21.sp,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SmallPill("Cancelar", Modifier.weight(1f)) { confirmTikwm = false }
+                        SmallPill("Activar", Modifier.weight(1f), filled = true) {
+                            vm.changeTikwm(true); confirmTikwm = false
+                        }
+                    }
+                }
             }
         }
 

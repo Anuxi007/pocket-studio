@@ -98,7 +98,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             delay(500)
             try {
                 val meta = Ytdlp.fetchInfo(ctx, url)
-                val options = Ytdlp.buildVideoOptions(meta)
+                val options = if (prefs.tikwmEnabled && Tikwm.isTiktok(url)) {
+                    listOf(
+                        VideoOption(
+                            formatId = "tikwm", label = "Original (TikWM)", height = 0, fps = null,
+                            codecName = "H.264", container = "MP4", sizeBytes = null,
+                            compatible = true, recommended = true, hasAudio = true, mergeToMp4 = false,
+                        )
+                    )
+                } else Ytdlp.buildVideoOptions(meta)
                 info = InfoState.Ready(meta, options)
                 selectedVideo = options.firstOrNull { it.recommended }?.formatId
             } catch (e: CancellationException) {

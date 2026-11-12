@@ -183,7 +183,11 @@ object Ytdlp {
             request.addOption("--audio-quality", "${item.audioKbps}K")
         } else {
             val id = item.formatId ?: "best"
-            val selector = if (item.hasAudio) id else "$id+bestaudio[ext=m4a]/$id+bestaudio/$id"
+            val selector = when {
+                id == "tikwm" -> "bv*+ba/b" // respaldo cuando TikWM falla
+                item.hasAudio -> id
+                else -> "$id+bestaudio[ext=m4a]/$id+bestaudio/$id"
+            }
             request.addOption("-f", selector)
             if (item.mergeToMp4) request.addOption("--merge-output-format", "mp4")
         }
