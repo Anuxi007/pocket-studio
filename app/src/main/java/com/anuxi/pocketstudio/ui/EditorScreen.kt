@@ -445,14 +445,25 @@ private fun Timeline(
             }
         }
 
-        Row(Modifier.fillMaxWidth().weight(1f).verticalScroll(vScroll)) {
+        // Toda esta zona recibe gestos: arrastrar mueve la linea de tiempo en cualquier direccion
+        // y pellizcar hace zoom. Los clips los consumen solo al mantener apretado o en sus manijas.
+        Box(
+            Modifier.fillMaxWidth().weight(1f).pointerInput(Unit) {
+                detectTransformGestures { centroid, pan, zoom, _ ->
+                    if (abs(zoom - 1f) > 0.003f) zoomBy(zoom, scroll.value + centroid.x - labelW.toPx())
+                    scroll.dispatchRawDelta(-pan.x)
+                    vScroll.dispatchRawDelta(-pan.y)
+                }
+            },
+        ) {
+        Row(Modifier.fillMaxSize().verticalScroll(vScroll, enabled = false)) {
             // columna fija con los nombres de las capas
             Column(Modifier.width(labelW), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Spacer(Modifier.height(rulerH))
                 p.layers.asReversed().forEach { l -> LayerLabel(ed, l, rowH, onRelink) }
             }
             Box(
-                Modifier.weight(1f).horizontalScroll(scroll).onSizeChanged { viewportPx = it.width },
+                Modifier.weight(1f).horizontalScroll(scroll, enabled = false).onSizeChanged { viewportPx = it.width },
             ) {
                 Box(Modifier.width(contentW)) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -471,6 +482,7 @@ private fun Timeline(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -601,24 +613,24 @@ private fun ClipRow(ed: EditorState, l: Layer, pps: Float, density: Float, rowH:
             // manijas para recortar
             Box(
                 Modifier.align(Alignment.CenterStart).width(14.dp).fillMaxHeight()
-                    .pointerInput(l.id, pps) {
+                    .then(if (!sel) Modifier else Modifier.pointerInput(l.id, pps) {
                         var raw = 0f
                         detectHorizontalDragGestures(
                             onDragStart = { raw = l.start; ed.selected = l.id },
                             onHorizontalDrag = { c, dx -> c.consume(); raw += dx / density / pps; ed.trimStart(l.id, raw, tolSec) },
                         )
-                    },
+                    }),
                 contentAlignment = Alignment.Center,
             ) { if (sel) Box(Modifier.size(3.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(Color.White)) }
             Box(
                 Modifier.align(Alignment.CenterEnd).width(14.dp).fillMaxHeight()
-                    .pointerInput(l.id, pps) {
+                    .then(if (!sel) Modifier else Modifier.pointerInput(l.id, pps) {
                         var raw = 0f
                         detectHorizontalDragGestures(
                             onDragStart = { raw = l.end; ed.selected = l.id },
                             onHorizontalDrag = { c, dx -> c.consume(); raw += dx / density / pps; ed.trimEnd(l.id, raw, tolSec) },
                         )
-                    },
+                    }),
                 contentAlignment = Alignment.Center,
             ) { if (sel) Box(Modifier.size(3.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(Color.White)) }
         }

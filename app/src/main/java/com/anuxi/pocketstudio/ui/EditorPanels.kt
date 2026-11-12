@@ -643,16 +643,17 @@ fun ProjectSettingsSheet(ed: EditorState, openDial: (DialSpec) -> Unit, onDismis
                     val cur = Formats.indexOfFirst { it.w == p.width && it.h == p.height }
                     ChipRow(Formats.map { it.label }, cur) { ed.setSize(Formats[it].w, Formats[it].h, p.resize) }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SizeChip(tr("Ancho", "Width"), p.width, Modifier.weight(1f)) {
-                            var pending = p.width
-                            openDial(DialSpec(tr("Ancho", "Width"), null, p.width.toFloat(), " px", 0, 16f, 4096f,
-                                { pending = it.toInt() }, { ed.setSize(pending, p.height, p.resize) }))
+                        var wTxt by remember(p.width) { mutableStateOf(p.width.toString()) }
+                        var hTxt by remember(p.height) { mutableStateOf(p.height.toString()) }
+                        fun even(v: Int) = (v.coerceIn(16, 4096) / 2) * 2
+                        NumField(wTxt, { wTxt = it }, tr("Ancho", "Width"), Modifier.weight(1f)) {
+                            val v = wTxt.toIntOrNull()
+                            if (v != null && even(v) != p.width) ed.setSize(even(v), p.height, p.resize) else wTxt = p.width.toString()
                         }
                         PsChip("⇄", false, height = 32.dp) { ed.setSize(p.height, p.width, p.resize) }
-                        SizeChip(tr("Alto", "Height"), p.height, Modifier.weight(1f)) {
-                            var pending = p.height
-                            openDial(DialSpec(tr("Alto", "Height"), null, p.height.toFloat(), " px", 0, 16f, 4096f,
-                                { pending = it.toInt() }, { ed.setSize(p.width, pending, p.resize) }))
+                        NumField(hTxt, { hTxt = it }, tr("Alto", "Height"), Modifier.weight(1f)) {
+                            val v = hTxt.toIntOrNull()
+                            if (v != null && even(v) != p.height) ed.setSize(p.width, even(v), p.resize) else hTxt = p.height.toString()
                         }
                     }
                 }

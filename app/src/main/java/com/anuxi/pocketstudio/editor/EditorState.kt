@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
+import android.media.MediaPlayer
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.runtime.getValue
@@ -54,7 +55,6 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
 
     private val decoder = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val retrievers = HashMap<String, MediaMetadataRetriever>()
-    private var gen = 0
     private var saveJob: Job? = null
     private var playJob: Job? = null
 
@@ -73,6 +73,7 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
 
     fun close() {
         stop()
+        releaseAudio()
         project?.let { ProjectStore.save(app, it) }
         saveJob?.cancel()
         project = null
@@ -431,6 +432,8 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
                     playing = false
                 }
                 requestFrames(true)
+                syncAudio(playhead)
+                if (!playing) pauseAudio()
             }
         }
     }
@@ -438,40 +441,121 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
     fun stop() {
         playing = false
         playJob?.cancel()
+        pauseAudio()
     }
 
     // --------------------------------------------------------- frames de preview
 
-    /** Pide el frame de cada capa visible en el cursor. Gana siempre la ultima peticion. */
+    private class FrameReq(val t: Float, val fast: Boolean, val div: Int, val targets: List<Layer>)
+
+    private var pending: FrameReq? = null
+    private var worker = false
+
+    /**
+     * Pide el frame de cada capa visible en el cursor. Una sola tarea decodifica siempre la
+     * peticion mas reciente: si llegan varias seguidas, se salta a la ultima sin descartar
+     * lo que ya se termino de decodificar.
+     */
     fun requestFrames(fast: Boolean) {
         val p = project ?: return
-        val my = ++gen
         val t = playhead
-        val div = p.previewDiv.coerceAtLeast(1)
         val targets = p.layers.filter {
             it.kind == LayerKind.Video && !it.missing && it.uri != null && t >= it.start - 1e-3f && t <= it.end + 1e-3f
         }
         // las capas que ya no estan en pantalla sueltan su frame
         frames.keys.filter { k -> targets.none { it.id == k } }.forEach { frames.remove(it) }
-        scope.launch(decoder) {
-            for (l in targets) {
-                if (my != gen) return@launch
-                val r = retrievers.getOrPut(l.id) {
-                    MediaMetadataRetriever().also { it.setDataSource(app, Uri.parse(l.uri)) }
+        pending = FrameReq(t, fast, p.previewDiv.coerceAtLeast(1), targets)
+        if (worker) return
+        worker = true
+        scope.launch {
+            try {
+                while (true) {
+                    val r = pending ?: break
+                    pending = null
+                    for (l in r.targets) {
+                        val us = (l.sourceTime(r.t) * 1_000_000L).toLong()
+                        val uri = l.uri ?: continue
+                        val key = l.id + uri
+                        val w = max(96, l.srcW / r.div)
+                        val h = max(96, l.srcH / r.div)
+                        val bmp = withContext(decoder) {
+                            runCatching {
+                                val ret = retrievers.getOrPut(key) {
+                                    MediaMetadataRetriever().also { it.setDataSource(app, Uri.parse(uri)) }
+                                }
+                                ret.getScaledFrameAtTime(
+                                    us,
+                                    if (r.fast) MediaMetadataRetriever.OPTION_CLOSEST_SYNC else MediaMetadataRetriever.OPTION_CLOSEST,
+                                    w, h,
+                                )
+                            }.getOrNull()
+                        }
+                        if (bmp != null && project != null) frames[l.id] = bmp
+                    }
                 }
-                val us = (l.sourceTime(t) * 1_000_000L).toLong()
-                val w = max(96, l.srcW / div)
-                val h = max(96, l.srcH / div)
-                val bmp = runCatching {
-                    r.getScaledFrameAtTime(
-                        us,
-                        if (fast) MediaMetadataRetriever.OPTION_CLOSEST_SYNC else MediaMetadataRetriever.OPTION_CLOSEST,
-                        w, h,
-                    )
-                }.getOrNull()
-                if (bmp != null && my == gen) withContext(kotlinx.coroutines.Dispatchers.Main) { frames[l.id] = bmp }
+            } finally {
+                worker = false
             }
         }
+    }
+
+    // -------------------------------------------------------------------- audio
+
+    private val players = HashMap<String, MediaPlayer>()
+    private val ready = HashSet<String>()
+    private val lastSpeed = HashMap<String, Float>()
+
+    /** Mantiene sonando el audio de las capas activas en [t]; pausa el resto. */
+    private fun syncAudio(t: Float) {
+        val p = project ?: return
+        val ids = p.layers.map { it.id }.toSet()
+        players.keys.filter { it !in ids }.forEach { releasePlayer(it) }
+        for (l in p.layers) {
+            if (l.kind != LayerKind.Video || l.missing) continue
+            val uri = l.uri ?: continue
+            val active = playing && !l.mute && t >= l.start && t < l.end
+            var mp = players[l.id]
+            if (!active) {
+                if (mp != null && l.id in ready) runCatching { if (mp.isPlaying) mp.pause() }
+                continue
+            }
+            if (mp == null) {
+                mp = MediaPlayer()
+                players[l.id] = mp
+                runCatching {
+                    mp.setDataSource(app, Uri.parse(uri))
+                    mp.setOnPreparedListener { ready.add(l.id) }
+                    mp.setOnErrorListener { _, _, _ -> ready.remove(l.id); true }
+                    mp.prepareAsync()
+                }
+                continue
+            }
+            if (l.id !in ready) continue
+            runCatching {
+                val src = (l.sourceTime(t) * 1000).toInt()
+                val sp = (l.speed.at(t) / 100f).coerceIn(0.25f, 4f)
+                if (lastSpeed[l.id] != sp) {
+                    mp.playbackParams = mp.playbackParams.setSpeed(sp)
+                    lastSpeed[l.id] = sp
+                    if (!mp.isPlaying) mp.pause()
+                }
+                if (!mp.isPlaying) { mp.seekTo(src); mp.start() }
+                else if (abs(mp.currentPosition - src) > 400) mp.seekTo(src)
+            }
+        }
+    }
+
+    private fun pauseAudio() {
+        players.forEach { (id, mp) -> if (id in ready) runCatching { if (mp.isPlaying) mp.pause() } }
+    }
+
+    private fun releasePlayer(id: String) {
+        players.remove(id)?.let { runCatching { it.release() } }
+        ready.remove(id); lastSpeed.remove(id)
+    }
+
+    private fun releaseAudio() {
+        players.keys.toList().forEach { releasePlayer(it) }
     }
 
     // ------------------------------------------------------------------ sondeo

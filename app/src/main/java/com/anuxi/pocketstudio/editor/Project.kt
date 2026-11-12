@@ -55,7 +55,7 @@ class Layer(
 
     var scaleLinked = true
     var parentId: String? = null
-    var mute = true
+    var mute = false
     var blur = false
     var interp = Interp.Flow
     var tile: TileFx? = null
@@ -264,7 +264,7 @@ fun projectFromJson(o: JSONObject): Project {
         l.tracks().forEach { (n, t) -> t.fromJson(j.optJSONObject(n)) }
         l.scaleLinked = j.optBoolean("scaleLinked", true)
         l.parentId = if (j.isNull("parent")) null else j.optString("parent")
-        l.mute = j.optBoolean("mute", true); l.blur = j.optBoolean("blur", false)
+        l.mute = j.optBoolean("mute", false); l.blur = j.optBoolean("blur", false)
         l.interp = runCatching { Interp.valueOf(j.optString("interp", "Flow")) }.getOrDefault(Interp.Flow)
         j.optJSONObject("tile")?.let { t ->
             val f = TileFx()

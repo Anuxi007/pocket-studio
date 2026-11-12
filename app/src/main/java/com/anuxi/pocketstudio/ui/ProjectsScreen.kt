@@ -157,7 +157,7 @@ fun ProjectsScreen(vm: MainViewModel) {
                 ProjectStore.rename(ctx, p.id, name)
                 vm.projectsRev++
                 renaming = null
-            }, okEnabled = name.isNotBlank())
+            }, okEnabled = name.isNotBlank() && wTxt.isNotEmpty() && hTxt.isNotEmpty())
         }
     }
 
@@ -236,6 +236,8 @@ private fun ProjectCard(p: ProjectSummary, onOpen: () -> Unit, onMenu: () -> Uni
 private fun NewProjectSheet(defaultName: String, onDismiss: () -> Unit, onCreate: (String, Format, Float) -> Unit) {
     var name by remember { mutableStateOf(defaultName) }
     var fmt by remember { mutableIntStateOf(0) }
+    var wTxt by remember { mutableStateOf(Formats[0].w.toString()) }
+    var hTxt by remember { mutableStateOf(Formats[0].h.toString()) }
     var fps by remember { mutableIntStateOf(1) }
     val fpsList = listOf(24f, 30f, 60f)
     PsSheet(onDismiss) {
@@ -243,12 +245,20 @@ private fun NewProjectSheet(defaultName: String, onDismiss: () -> Unit, onCreate
         Text(tr("Nombre", "Name"), color = Ps.Muted, fontSize = 12.sp)
         PsTextField(name, { name = it }, tr("Nombre", "Name"))
         Text(tr("Formato", "Format"), color = Ps.Muted, fontSize = 12.sp)
-        ChipRow(Formats.map { it.label }, fmt) { fmt = it }
+        ChipRow(Formats.map { it.label }, fmt) {
+            fmt = it; wTxt = Formats[it].w.toString(); hTxt = Formats[it].h.toString()
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            NumField(wTxt, { wTxt = it; fmt = -1 }, tr("Ancho", "Width"), Modifier.weight(1f))
+            Text("×", color = Ps.Muted, fontSize = 15.sp)
+            NumField(hTxt, { hTxt = it; fmt = -1 }, tr("Alto", "Height"), Modifier.weight(1f))
+        }
         Text(tr("Fotogramas por segundo", "Frames per second"), color = Ps.Muted, fontSize = 12.sp)
         ChipRow(fpsList.map { it.toInt().toString() }, fps) { fps = it }
         Note(tr("Lo puedes cambiar después en los ajustes del proyecto.", "You can change this later in the project settings."))
         SheetButtons(tr("Cancelar", "Cancel"), onDismiss, tr("Crear", "Create"), {
-            onCreate(name, Formats[fmt], fpsList[fps])
+            fun ev(t: String, d: Int) = ((t.toIntOrNull() ?: d).coerceIn(16, 4096) / 2) * 2
+            onCreate(name, Format("custom", ev(wTxt, 1080), ev(hTxt, 1920)), fpsList[fps])
         }, okEnabled = name.isNotBlank())
     }
 }

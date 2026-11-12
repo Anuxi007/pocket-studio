@@ -8,6 +8,12 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
@@ -459,3 +465,35 @@ fun roundTo(v: Float, decimals: Int): Float {
 }
 
 fun nearlyEqual(a: Float, b: Float, eps: Float = 1e-3f) = abs(a - b) <= eps
+
+
+/** Campo numerico con teclado de numeros. [onFocusLost] sirve para aplicar el valor al terminar de escribir. */
+@Composable
+fun NumField(
+    value: String,
+    onChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    onDone: () -> Unit = {},
+) {
+    val focus = LocalFocusManager.current
+    Row(
+        modifier.height(40.dp).clip(RoundedCornerShape(10.dp)).background(Color(0x14FFFFFF))
+            .border(1.dp, Color(0x26FFFFFF), RoundedCornerShape(10.dp)).padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = Ps.Muted2, fontSize = 11.sp)
+        Spacer(Modifier.width(8.dp))
+        BasicTextField(
+            value = value,
+            onValueChange = { v -> onChange(v.filter(Char::isDigit).take(4)) },
+            singleLine = true,
+            textStyle = TextStyle(color = Ps.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+            cursorBrush = SolidColor(Ps.Mint),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focus.clearFocus(); onDone() }),
+            modifier = Modifier.weight(1f).onFocusChanged { if (!it.isFocused) onDone() },
+        )
+        Text("px", color = Ps.Muted2, fontSize = 11.sp)
+    }
+}
