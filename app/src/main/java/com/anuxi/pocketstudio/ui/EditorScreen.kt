@@ -468,6 +468,18 @@ private fun Timeline(
             ) {
                 Box(Modifier.size(44.dp, 5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x59FFFFFF)))
             }
+            val canSplit = ed.canSplit(ed.selected)
+            Box(
+                Modifier.height(26.dp).clip(RoundedCornerShape(13.dp))
+                    .background(if (canSplit) SkyBlue.copy(alpha = 0.22f) else Color(0x0DFFFFFF))
+                    .pressable { if (canSplit) ed.splitLayer(ed.selected ?: "") }.padding(horizontal = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "✂ " + tr("Dividir", "Split"),
+                    color = if (canSplit) SkyBlue else Ps.Muted2, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                )
+            }
             Box(
                 Modifier.height(26.dp).clip(RoundedCornerShape(13.dp)).background(Ps.Mint.copy(alpha = 0.15f))
                     .pressable {
@@ -480,7 +492,7 @@ private fun Timeline(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    tr("Ver todo", "Fit all") + " · " + "%.0f s".format(p.duration),
+                    tr("Ver todo", "Fit all"),
                     color = Ps.Mint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 )
             }
@@ -596,7 +608,7 @@ private fun Timeline(
             // columna fija con los nombres de las capas
             Column(Modifier.width(labelW), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Spacer(Modifier.height(rulerH))
-                p.layers.asReversed().forEach { l -> LayerLabel(ed, l, rowH, onRelink) }
+                p.layers.asReversed().forEach { l -> LayerLabel(ed, l, rowH, onRelink, ed.rev) }
             }
             Box(
                 Modifier.weight(1f).horizontalScroll(scroll, enabled = false).onSizeChanged { viewportPx = it.width },
@@ -604,7 +616,7 @@ private fun Timeline(
                 Box(Modifier.width(contentW)) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Ruler(ed, pps, density, rulerH, onMarker) { z, cx -> zoomBy(z, cx) }
-                        p.layers.asReversed().forEach { l -> ClipRow(ed, l, pps, density, rowH) }
+                        p.layers.asReversed().forEach { l -> ClipRow(ed, l, pps, density, rowH, ed.rev) }
                     }
                     // lineas de marcadores y cursor, por encima de todo
                     Canvas(Modifier.matchParentSize()) {
@@ -631,11 +643,13 @@ private fun MiniRound(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun LayerLabel(ed: EditorState, l: Layer, rowH: Dp, onRelink: (String) -> Unit) {
+@Suppress("UNUSED_PARAMETER")
+private fun LayerLabel(ed: EditorState, l: Layer, rowH: Dp, onRelink: (String) -> Unit, rev: Int) {
     val sel = ed.selected == l.id
     Row(
         Modifier.fillMaxWidth().height(rowH).clip(RoundedCornerShape(12.dp))
-            .background(if (sel) SkyBlue.copy(alpha = 0.16f) else Color(0x0AFFFFFF))
+            .background(if (sel) SkyBlue.copy(alpha = 0.30f) else Color(0x0AFFFFFF))
+            .then(if (sel) Modifier.border(1.5.dp, SkyBlue, RoundedCornerShape(12.dp)) else Modifier)
             .clickable { ed.selected = l.id }
             .padding(start = if (l.parentId != null) 18.dp else 8.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -711,19 +725,21 @@ private fun Ruler(
 }
 
 @Composable
-private fun ClipRow(ed: EditorState, l: Layer, pps: Float, density: Float, rowH: Dp) {
+@Suppress("UNUSED_PARAMETER")
+private fun ClipRow(ed: EditorState, l: Layer, pps: Float, density: Float, rowH: Dp, rev: Int) {
     val sel = ed.selected == l.id
     val color = if (l.kind == LayerKind.Null) Color(0xD9FFC46B) else clipColor(l.id)
     Box(
         Modifier.fillMaxWidth().height(rowH).clip(RoundedCornerShape(12.dp))
-            .background(if (sel) SkyBlue.copy(alpha = 0.12f) else Color(0x0AFFFFFF)),
+            .background(if (sel) SkyBlue.copy(alpha = 0.22f) else Color(0x0AFFFFFF))
+            .then(if (sel) Modifier.border(1.5.dp, SkyBlue, RoundedCornerShape(12.dp)) else Modifier),
     ) {
         val w = max(10f, l.length * pps).dp
         val tolSec = 10f / pps
         Box(
             Modifier.offset(x = (l.start * pps).dp).width(w).fillMaxHeight().padding(vertical = 3.dp)
                 .clip(RoundedCornerShape(7.dp)).background(if (l.missing) Color(0x66FF8A8A) else color)
-                .then(if (sel) Modifier.border(2.dp, SkyBlue, RoundedCornerShape(7.dp)) else Modifier)
+                .then(if (sel) Modifier.border(3.dp, Color.White, RoundedCornerShape(7.dp)) else Modifier)
                 ,
             contentAlignment = Alignment.CenterStart,
         ) {
@@ -738,10 +754,10 @@ private fun ClipRow(ed: EditorState, l: Layer, pps: Float, density: Float, rowH:
             // manijas para recortar: solo se ven con el clip elegido (los gestos los maneja la linea de tiempo)
             if (sel) {
                 Box(Modifier.align(Alignment.CenterStart).width(14.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(3.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(Color.White))
+                    Box(Modifier.size(5.dp, 22.dp).clip(RoundedCornerShape(3.dp)).background(SkyBlue))
                 }
                 Box(Modifier.align(Alignment.CenterEnd).width(14.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(3.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(Color.White))
+                    Box(Modifier.size(5.dp, 22.dp).clip(RoundedCornerShape(3.dp)).background(SkyBlue))
                 }
             }
         }

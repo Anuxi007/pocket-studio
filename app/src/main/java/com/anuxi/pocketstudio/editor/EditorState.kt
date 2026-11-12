@@ -168,10 +168,36 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
     }
 
     fun duplicateLayer(id: String) {
-        val p = project ?: return
-        val src = p.layer(id) ?: return
-        val copy = projectFromJson(p.toJson()).layer(id) ?: return
-        val l = Layer(newId(), src.kind, src.name + " 2")
+        cloneLayer(id) ?: return
+        touch(frames = true)
+    }
+
+    /** Se puede dividir si el cursor cae dentro del clip elegido (no en sus bordes). */
+    fun canSplit(id: String?): Boolean {
+        val l = project?.layer(id) ?: return false
+        return playhead > l.start + 0.02f && playhead < l.end - 0.02f
+    }
+
+    /** Corta la capa en el cursor: la primera parte llega hasta ahi y la segunda continua desde ahi. */
+    fun splitLayer(id: String) {
+        if (!canSplit(id)) return
+        val l = project?.layer(id) ?: return
+        val t = playhead
+        val srcAt = l.sourceTime(t)
+        val second = cloneLayer(id, keepName = true) ?: return
+        second.start = t
+        second.inPoint = srcAt
+        second.length = l.end - t
+        l.length = t - l.start
+        selected = second.id
+        touch(frames = true)
+    }
+
+    private fun cloneLayer(id: String, keepName: Boolean = false): Layer? {
+        val p = project ?: return null
+        val src = p.layer(id) ?: return null
+        val copy = projectFromJson(p.toJson()).layer(id) ?: return null
+        val l = Layer(newId(), src.kind, if (keepName) src.name else src.name + " 2")
         // copia por JSON: reutiliza el lector del proyecto
         l.uri = copy.uri; l.srcW = copy.srcW; l.srcH = copy.srcH; l.srcDur = copy.srcDur; l.srcFps = copy.srcFps
         l.start = copy.start; l.inPoint = copy.inPoint; l.length = copy.length
@@ -183,9 +209,10 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
         }
         l.scaleLinked = copy.scaleLinked; l.parentId = copy.parentId; l.mute = copy.mute
         l.blur = copy.blur; l.interp = copy.interp
+        l.tile = copy.tile
         p.layers.add(p.layers.indexOf(src) + 1, l)
         selected = l.id
-        touch(frames = true)
+        return l
     }
 
     fun moveLayerOrder(id: String, up: Boolean) {

@@ -336,6 +336,9 @@ fun EditorSheets(
                 SheetTitle(tr("Capa", "Layer"), l.name)
                 PsTextField(name, { name = it }, tr("Nombre", "Name"))
                 SheetButtons(null, {}, tr("Guardar nombre", "Save name"), { ed.setName(l.id, name); onDismiss() }, okEnabled = name.isNotBlank())
+                if (ed.canSplit(l.id)) {
+                    SheetButtons(null, {}, tr("Dividir en el cursor", "Split at playhead"), { ed.splitLayer(l.id); onDismiss() })
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PsChip(tr("Subir", "Move up"), false, Modifier.weight(1f)) { ed.moveLayerOrder(l.id, true) }
                     PsChip(tr("Bajar", "Move down"), false, Modifier.weight(1f)) { ed.moveLayerOrder(l.id, false) }
