@@ -87,7 +87,7 @@ class DialSpec(
 fun EditorScreen(vm: MainViewModel) {
     val ed = vm.editor
     val p = ed.project ?: return
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -250,7 +250,7 @@ private fun RenameSheet(current: String, onDismiss: () -> Unit, onSave: (String)
 @Composable
 private fun Preview(ed: EditorState, onSettings: () -> Unit) {
     val p = ed.project ?: return
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val ratio = p.width.toFloat() / p.height
         val maxW = maxWidth
@@ -344,7 +344,7 @@ private fun Preview(ed: EditorState, onSettings: () -> Unit) {
 @Composable
 private fun LayerSurface(ed: EditorState, l: Layer, wPx: Float, hPx: Float) {
     val p = ed.project ?: return
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val t = ed.playhead
     val inRange = t >= l.start - 1e-3f && t <= l.end + 1e-3f
     val a = if (inRange && !l.hidden) p.alpha(l, t).coerceIn(0f, 1f) else 0f
@@ -389,7 +389,7 @@ private fun LayerSurface(ed: EditorState, l: Layer, wPx: Float, hPx: Float) {
 @Composable
 private fun TransportRow(ed: EditorState, onAddMarker: () -> Unit) {
     val p = ed.project ?: return
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.size(36.dp).clip(CircleShape).background(Color(0x14FFFFFF)).pressable { ed.seekMarker(false) }, contentAlignment = Alignment.Center) {
             PsIcon(Icons.Filled.KeyboardArrowLeft, Ps.Text, 20.dp, tr("Marcador anterior", "Previous marker"))
@@ -554,7 +554,7 @@ private fun Timeline(
                         val hit = tr?.keys?.indices?.minByOrNull { abs(tr.keys[it].t * pxs - cx) }
                         if (tr != null && hit != null && abs(tr.keys[hit].t * pxs - cx) <= 18.dp.toPx()) {
                             down.consume()
-                            var idx = hit
+                            var idx: Int = hit
                             var raw = tr.keys[hit].t
                             var moved = false
                             var totalDx = 0f

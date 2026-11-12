@@ -64,7 +64,7 @@ private fun fmt(v: Float, decimals: Int) = if (decimals == 0) "%.0f".format(v) e
 
 @Composable
 fun PropertiesPanel(ed: EditorState, openDial: (DialSpec) -> Unit, openSheet: (EditorSheet) -> Unit) {
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val p = ed.project ?: return
     val l = ed.layer
     if (l == null) {
@@ -181,7 +181,7 @@ private fun PropRow(
     openDial: (DialSpec) -> Unit,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val tracks = defs.mapNotNull { l.track(it.prop) }
     val e = ed.eps()
     val keyedHere = tracks.any { it.indexAt(ed.playhead, e) >= 0 }
@@ -227,7 +227,7 @@ private fun PropRow(
 
 @Composable
 fun KeyframesPanel(ed: EditorState, openSheet: (EditorSheet) -> Unit) {
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val l = ed.layer
     if (l == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -326,7 +326,7 @@ fun EditorSheets(
     openSheet: (EditorSheet) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val p = ed.project ?: return
     when (s) {
         is EditorSheet.MenuFor -> {
@@ -380,7 +380,7 @@ private fun ParentOption(label: String, selected: Boolean, onClick: () -> Unit) 
 
 @Composable
 private fun CurveSheet(ed: EditorState, l: Layer, s: EditorSheet.CurveFor, onDismiss: () -> Unit) {
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val t = l.track(s.prop) ?: return
     var withNext by remember { mutableStateOf(true) }
     var speedView by remember { mutableStateOf(false) }
@@ -425,7 +425,7 @@ private fun TileSheet(
     ed: EditorState, l: Layer,
     openDial: (DialSpec) -> Unit, openSheet: (EditorSheet) -> Unit, onDismiss: () -> Unit,
 ) {
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val f = l.tile ?: return
     PsSheet(onDismiss) {
         SheetTitle("Motion Tile", l.name + " · " + tr("repite la capa en mosaico", "repeats the layer as tiles"))
@@ -513,7 +513,7 @@ fun ValueChip(short: String, text: String, onClick: () -> Unit) {
 
 @Composable
 private fun SpeedSheet(ed: EditorState, l: Layer, openSheet: (EditorSheet) -> Unit, onDismiss: () -> Unit) {
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val p = ed.project ?: return
     val e = ed.eps()
     val outFrames = (l.length * p.fps).toInt()
@@ -634,7 +634,7 @@ private fun RampGraph(l: Layer, playhead: Float) {
 
 @Composable
 fun ProjectSettingsSheet(ed: EditorState, openDial: (DialSpec) -> Unit, onDismiss: () -> Unit) {
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val p = ed.project ?: return
     PsSheet(onDismiss) {
         SheetTitle(tr("Ajustes del proyecto", "Project settings"), p.name)
@@ -744,7 +744,7 @@ private fun SizeChip(label: String, value: Int, modifier: Modifier, onClick: () 
 
 @Composable
 fun MarkerSheet(ed: EditorState, id: String, openDial: (DialSpec) -> Unit, onDismiss: () -> Unit) {
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    ed.revFlow.collectAsState().value
     val p = ed.project ?: return
     var currentId by remember(id) { mutableStateOf(id) }
     val m = p.markers.firstOrNull { it.id == currentId } ?: return
