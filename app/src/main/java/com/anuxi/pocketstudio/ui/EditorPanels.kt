@@ -47,7 +47,7 @@ private class PropDef(
     val unit: String = "", val decimals: Int = 0, val lo: Float? = null, val hi: Float? = null,
 )
 
-private fun propName(prop: String): String = when (prop) {
+fun propName(prop: String): String = when (prop) {
     "anchorX" -> tr("Anclaje X", "Anchor X"); "anchorY" -> tr("Anclaje Y", "Anchor Y")
     "posX" -> tr("Posición X", "Position X"); "posY" -> tr("Posición Y", "Position Y")
     "scaleX" -> tr("Escala X", "Scale X"); "scaleY" -> tr("Escala Y", "Scale Y")

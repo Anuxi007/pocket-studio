@@ -42,6 +42,53 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
     var rev by mutableIntStateOf(0)
         private set
 
+    /** Lo mismo que [rev] pero como flujo: la interfaz se suscribe con collectAsState. */
+    val revFlow = kotlinx.coroutines.flow.MutableStateFlow(0)
+
+    private fun bump() {
+        rev++
+        revFlow.value = rev
+    }
+
+    /** Capas con las propiedades animadas desplegadas en la linea de tiempo. */
+    var expanded by mutableStateOf<Set<String>>(emptySet())
+
+    fun toggleExpanded(id: String) {
+        expanded = if (id in expanded) expanded - id else expanded + id
+    }
+
+    /** Propiedades con keyframes de una capa. */
+    fun animatedTracks(l: Layer): List<Pair<String, Track>> = l.tracks().filter { it.second.animated }
+
+    /** Mueve un keyframe en el tiempo. Devuelve su nuevo indice. */
+    fun moveKey(l: Layer, prop: String, index: Int, newT: Float, tolerance: Float): Int {
+        val tr = l.track(prop) ?: return index
+        if (index !in tr.keys.indices) return index
+        val e = eps()
+        val nt = snap(newT, l.id, tolerance).coerceAtLeast(0f)
+        if (tr.keys.indices.any { it != index && abs(tr.keys[it].t - nt) <= e }) return index
+        val old = tr.keys[index]
+        val oldT = old.t
+        tr.keys.removeAt(index)
+        tr.insert(old.copy(t = nt))
+        // con escala enlazada la otra mitad se mueve igual
+        val pair = if (l.scaleLinked && prop == "scaleX") l.scaleY else if (l.scaleLinked && prop == "scaleY") l.scaleX else null
+        pair?.let { o ->
+            val j = o.keys.indexOfFirst { abs(it.t - oldT) <= e }
+            if (j >= 0 && o.keys.none { abs(it.t - nt) <= e }) { val k = o.keys.removeAt(j); o.insert(k.copy(t = nt)) }
+        }
+        touch()
+        return tr.keys.indexOfFirst { it.t == nt }.let { if (it < 0) index else it }
+    }
+
+    fun toggleHidden(id: String) {
+        project?.layer(id)?.let { it.hidden = !it.hidden; touch() }
+    }
+
+    fun toggleMute(id: String) {
+        project?.layer(id)?.let { it.mute = !it.mute; touch() }
+    }
+
     var playhead by mutableFloatStateOf(0f)
     var playing by mutableStateOf(false)
         private set
@@ -62,7 +109,7 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
         playhead = 0f
         selected = p.layers.lastOrNull()?.id
         tab = 0
-        rev++
+        bump()
         requestFrames(false)
     }
 
@@ -80,7 +127,7 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
 
     /** Avisa de un cambio: vuelve a dibujar y guarda solo. */
     fun touch(frames: Boolean = false) {
-        rev++
+        bump()
         scheduleSave()
         if (frames) requestFrames(false)
     }
@@ -511,22 +558,26 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
             val mp = MediaPlayer()
             val lp = LP(mp, l.uri)
             lps[id] = lp
-            try {
-                mp.setDataSource(app, Uri.parse(l.uri))
-                surfaces[id]?.let { mp.setSurface(it) }
-                mp.setOnPreparedListener {
-                    lp.prepared = true
-                    if (playing) syncPlayback(playhead) else seekPlayers()
+            surfaces[id]?.let { runCatching { mp.setSurface(it) } }
+            mp.setOnPreparedListener {
+                lp.prepared = true
+                if (playing) syncPlayback(playhead) else seekPlayers()
+            }
+            mp.setOnSeekCompleteListener {
+                lp.seeking = false
+                if (lp.want >= 0 && lp.want != lp.issued) issue(lp)
+            }
+            mp.setOnCompletionListener { lp.done = true }
+            mp.setOnErrorListener { _, _, _ -> lp.prepared = false; lp.seeking = false; true }
+            val u = Uri.parse(l.uri)
+            // abrir el archivo puede tardar: fuera del hilo principal
+            scope.launch(decoder) {
+                try {
+                    mp.setDataSource(app, u)
+                    mp.prepareAsync()
+                } catch (e: Exception) {
+                    withContext(kotlinx.coroutines.Dispatchers.Main) { releaseLP(id) }
                 }
-                mp.setOnSeekCompleteListener {
-                    lp.seeking = false
-                    if (lp.want >= 0 && lp.want != lp.issued) issue(lp)
-                }
-                mp.setOnCompletionListener { lp.done = true }
-                mp.setOnErrorListener { _, _, _ -> lp.prepared = false; lp.seeking = false; true }
-                mp.prepareAsync()
-            } catch (e: Exception) {
-                releaseLP(id)
             }
         }
     }

@@ -31,7 +31,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -45,6 +47,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -344,7 +347,7 @@ private fun LayerSurface(ed: EditorState, l: Layer, wPx: Float, hPx: Float) {
     @Suppress("UNUSED_EXPRESSION") ed.rev
     val t = ed.playhead
     val inRange = t >= l.start - 1e-3f && t <= l.end + 1e-3f
-    val a = if (inRange) p.alpha(l, t).coerceIn(0f, 1f) else 0f
+    val a = if (inRange && !l.hidden) p.alpha(l, t).coerceIn(0f, 1f) else 0f
     val m = p.worldMatrix(l, t)
     val s = wPx / p.width
     androidx.compose.ui.viewinterop.AndroidView(
@@ -425,7 +428,7 @@ private fun Timeline(
     onRelink: (String) -> Unit,
 ) {
     val p = ed.project ?: return
-    @Suppress("UNUSED_EXPRESSION") ed.rev
+    val rev by ed.revFlow.collectAsState()
     val density = LocalDensity.current.density
     val scroll = rememberScrollState()
     val vScroll = rememberScrollState()
@@ -435,6 +438,8 @@ private fun Timeline(
     val pps = ed.pxPerSec
     val labelW = 108.dp
     val rowH = 42.dp
+    val laneH = 26.dp
+    val laneGap = 3.dp
     val rulerH = 24.dp
     val dur = max(p.duration, 1f)
     val contentW = ((max(dur + 4f, 6f)) * pps).dp
@@ -507,6 +512,8 @@ private fun Timeline(
                 val rulerPx = rulerH.toPx()
                 val rowPx = rowH.toPx()
                 val gapPx = 5.dp.toPx()
+                val lanePx = laneH.toPx()
+                val laneGapPx = laneGap.toPx()
                 val edgeOut = 8.dp.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -517,12 +524,57 @@ private fun Timeline(
                     val pps = ed.pxPerSec
                     val pxs = pps * density
                     val tol = 10f / pps
-                    val rows = proj.layers.asReversed()
-                    val rel = yC - rulerPx - gapPx
-                    val r = if (rel < 0f) -1 else (rel / (rowPx + gapPx)).toInt()
-                    val inRow = r in rows.indices && rel - r * (rowPx + gapPx) <= rowPx
-                    val layer = if (down.position.x >= labelPx && inRow) rows[r] else null
+                    var layerV: Layer? = null
+                    var laneLayerV: Layer? = null
+                    var lanePropV: String? = null
+                    var yy = rulerPx + gapPx
+                    for (l in proj.layers.asReversed()) {
+                        val lanes = if (l.id in ed.expanded) ed.animatedTracks(l) else emptyList()
+                        val blockH = rowPx + lanes.size * (lanePx + laneGapPx)
+                        if (yC >= yy && yC <= yy + blockH) {
+                            if (down.position.x >= labelPx) {
+                                if (yC <= yy + rowPx) layerV = l
+                                else for (i in lanes.indices) {
+                                    val top = yy + rowPx + laneGapPx + i * (lanePx + laneGapPx)
+                                    if (yC >= top && yC <= top + lanePx) { laneLayerV = l; lanePropV = lanes[i].first }
+                                }
+                            }
+                            break
+                        }
+                        yy += blockH + gapPx
+                    }
+                    val layer = layerV
                     val cx = down.position.x - labelPx + scroll.value
+
+                    // 0) keyframes de una propiedad desplegada: tocar = ir ahi, arrastrar = moverlo
+                    val ll = laneLayerV
+                    val lp = lanePropV
+                    if (ll != null && lp != null) {
+                        val tr = ll.track(lp)
+                        val hit = tr?.keys?.indices?.minByOrNull { abs(tr.keys[it].t * pxs - cx) }
+                        if (tr != null && hit != null && abs(tr.keys[hit].t * pxs - cx) <= 18.dp.toPx()) {
+                            down.consume()
+                            var idx = hit
+                            var raw = tr.keys[hit].t
+                            var moved = false
+                            var totalDx = 0f
+                            while (true) {
+                                val ev = awaitPointerEvent()
+                                val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!ch.pressed) break
+                                val dx = ch.positionChange().x
+                                totalDx += dx
+                                if (!moved && abs(totalDx) > slop) moved = true
+                                if (moved && dx != 0f) {
+                                    raw += dx / density / ed.pxPerSec
+                                    idx = ed.moveKey(ll, lp, idx, raw, tol)
+                                }
+                                ch.consume()
+                            }
+                            if (!moved) ed.seek(tr.keys[hit].t)
+                            return@awaitEachGesture
+                        }
+                    }
 
                     // 1) manijas de recorte (solo con el clip elegido)
                     if (layer != null && layer.id == ed.selected) {
@@ -608,7 +660,12 @@ private fun Timeline(
             // columna fija con los nombres de las capas
             Column(Modifier.width(labelW), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Spacer(Modifier.height(rulerH))
-                p.layers.asReversed().forEach { l -> LayerLabel(ed, l, rowH, onRelink, ed.rev) }
+                p.layers.asReversed().forEach { l ->
+                    Column(verticalArrangement = Arrangement.spacedBy(laneGap)) {
+                        LayerHeader(ed, l, rowH, onRelink, rev)
+                        if (l.id in ed.expanded) ed.animatedTracks(l).forEach { (n, _) -> LaneLabel(n, laneH) }
+                    }
+                }
             }
             Box(
                 Modifier.weight(1f).horizontalScroll(scroll, enabled = false).onSizeChanged { viewportPx = it.width },
@@ -616,7 +673,12 @@ private fun Timeline(
                 Box(Modifier.width(contentW)) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Ruler(ed, pps, density, rulerH, onMarker) { z, cx -> zoomBy(z, cx) }
-                        p.layers.asReversed().forEach { l -> ClipRow(ed, l, pps, density, rowH, ed.rev) }
+                        p.layers.asReversed().forEach { l ->
+                            Column(verticalArrangement = Arrangement.spacedBy(laneGap)) {
+                                ClipRow(ed, l, pps, density, rowH, rev)
+                                if (l.id in ed.expanded) ed.animatedTracks(l).forEach { (n, tr) -> LaneRow(ed, tr, pps, density, laneH, rev) }
+                            }
+                        }
                     }
                     // lineas de marcadores y cursor, por encima de todo
                     Canvas(Modifier.matchParentSize()) {
@@ -644,28 +706,127 @@ private fun MiniRound(text: String, onClick: () -> Unit) {
 
 @Composable
 @Suppress("UNUSED_PARAMETER")
-private fun LayerLabel(ed: EditorState, l: Layer, rowH: Dp, onRelink: (String) -> Unit, rev: Int) {
+private fun LayerHeader(ed: EditorState, l: Layer, rowH: Dp, onRelink: (String) -> Unit, rev: Int) {
     val sel = ed.selected == l.id
+    val hasKeys = ed.animatedTracks(l).isNotEmpty()
+    val open = l.id in ed.expanded
     Row(
         Modifier.fillMaxWidth().height(rowH).clip(RoundedCornerShape(12.dp))
             .background(if (sel) SkyBlue.copy(alpha = 0.30f) else Color(0x0AFFFFFF))
             .then(if (sel) Modifier.border(1.5.dp, SkyBlue, RoundedCornerShape(12.dp)) else Modifier)
-            .clickable { ed.selected = l.id }
-            .padding(start = if (l.parentId != null) 18.dp else 8.dp, end = 4.dp),
+            .clickable { ed.selected = l.id },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (l.missing) {
-            Box(Modifier.clickable { onRelink(l.id) }) { PsIcon(Icons.Filled.Warning, Ps.Amber, 16.dp, tr("Falta el clip", "Clip missing")) }
-        } else {
-            Canvas(Modifier.size(15.dp)) {
-                val s = size.minDimension
-                val col = if (l.kind == LayerKind.Null) Color(0xFFFFC46B) else Color(0xFFB9BCE0)
-                val dash = if (l.kind == LayerKind.Null) PathEffect.dashPathEffect(floatArrayOf(4f, 4f)) else null
-                drawRoundRect(col, Offset(s * 0.1f, s * 0.2f), Size(s * 0.8f, s * 0.6f), androidx.compose.ui.geometry.CornerRadius(3f), style = Stroke(width = 2f, pathEffect = dash))
+        // video: encender / apagar la imagen
+        Box(
+            Modifier.weight(1f).fillMaxHeight().clickable {
+                ed.selected = l.id
+                if (l.missing) onRelink(l.id) else if (l.kind == LayerKind.Video) ed.toggleHidden(l.id)
+            },
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                l.missing -> PsIcon(Icons.Filled.Warning, Ps.Amber, 18.dp, tr("Falta el clip", "Clip missing"))
+                l.kind == LayerKind.Null -> NullIcon()
+                else -> VideoIcon(!l.hidden)
             }
         }
-        Spacer(Modifier.width(6.dp))
-        Text(l.name, color = Ps.Text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // audio: silenciar / activar
+        Box(
+            Modifier.weight(1f).fillMaxHeight().clickable(enabled = l.kind == LayerKind.Video) { ed.selected = l.id; ed.toggleMute(l.id) },
+            contentAlignment = Alignment.Center,
+        ) { if (l.kind == LayerKind.Video) AudioIcon(!l.mute) }
+        // flecha: mostrar las propiedades con keyframes
+        Box(
+            Modifier.weight(1f).fillMaxHeight().clickable { ed.selected = l.id; ed.toggleExpanded(l.id) },
+            contentAlignment = Alignment.Center,
+        ) {
+            PsIcon(
+                if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                if (hasKeys) Ps.Text else Ps.Muted2, 22.dp,
+                tr("Propiedades con keyframes", "Keyframed properties"),
+            )
+        }
+    }
+}
+
+@Composable
+private fun VideoIcon(on: Boolean) {
+    val col = if (on) Color(0xFFB9BCE0) else Color(0xFF6C6F96)
+    Canvas(Modifier.size(22.dp)) {
+        val s = size.minDimension
+        drawRoundRect(col, Offset(s * 0.06f, s * 0.26f), Size(s * 0.58f, s * 0.48f), androidx.compose.ui.geometry.CornerRadius(s * 0.1f), style = Stroke(width = s * 0.1f))
+        val tri = androidx.compose.ui.graphics.Path().apply {
+            moveTo(s * 0.70f, s * 0.5f); lineTo(s * 0.94f, s * 0.34f); lineTo(s * 0.94f, s * 0.66f); close()
+        }
+        drawPath(tri, col)
+        if (!on) drawLine(Coral, Offset(s * 0.1f, s * 0.9f), Offset(s * 0.9f, s * 0.1f), s * 0.1f, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun AudioIcon(on: Boolean) {
+    val col = if (on) Color(0xFFB9BCE0) else Color(0xFF6C6F96)
+    Canvas(Modifier.size(22.dp)) {
+        val s = size.minDimension
+        val sp = androidx.compose.ui.graphics.Path().apply {
+            moveTo(s * 0.08f, s * 0.38f); lineTo(s * 0.28f, s * 0.38f); lineTo(s * 0.5f, s * 0.18f)
+            lineTo(s * 0.5f, s * 0.82f); lineTo(s * 0.28f, s * 0.62f); lineTo(s * 0.08f, s * 0.62f); close()
+        }
+        drawPath(sp, col)
+        if (on) {
+            drawArc(col, -40f, 80f, false, Offset(s * 0.42f, s * 0.3f), Size(s * 0.3f, s * 0.4f), style = Stroke(width = s * 0.09f, cap = StrokeCap.Round))
+            drawArc(col, -45f, 90f, false, Offset(s * 0.42f, s * 0.12f), Size(s * 0.5f, s * 0.76f), style = Stroke(width = s * 0.09f, cap = StrokeCap.Round))
+        } else {
+            drawLine(Coral, Offset(s * 0.1f, s * 0.9f), Offset(s * 0.9f, s * 0.1f), s * 0.1f, cap = StrokeCap.Round)
+        }
+    }
+}
+
+@Composable
+private fun NullIcon() {
+    Canvas(Modifier.size(20.dp)) {
+        val s = size.minDimension
+        drawRoundRect(
+            Color(0xFFFFC46B), Offset(s * 0.12f, s * 0.12f), Size(s * 0.76f, s * 0.76f),
+            androidx.compose.ui.geometry.CornerRadius(3f),
+            style = Stroke(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f))),
+        )
+    }
+}
+
+@Composable
+private fun LaneLabel(prop: String, h: Dp) {
+    Row(
+        Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(8.dp)).background(Color(0x08FFFFFF)).padding(start = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(propName(prop), color = Ps.Muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+@Suppress("UNUSED_PARAMETER")
+private fun LaneRow(ed: EditorState, tr: Track, pps: Float, density: Float, h: Dp, rev: Int) {
+    Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(8.dp)).background(Color(0x08FFFFFF))) {
+        Canvas(Modifier.matchParentSize()) {
+            val pxs = pps * density
+            val cy = size.height / 2f
+            if (tr.keys.size > 1) {
+                drawLine(Color(0x40FFFFFF), Offset(tr.keys.first().t * pxs, cy), Offset(tr.keys.last().t * pxs, cy), 2.dp.toPx())
+            }
+            val e = ed.eps()
+            val r = 6.5.dp.toPx()
+            tr.keys.forEach { k ->
+                val x = k.t * pxs
+                val on = abs(k.t - ed.playhead) <= e
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(x, cy - r); lineTo(x + r, cy); lineTo(x, cy + r); lineTo(x - r, cy); close()
+                }
+                drawPath(path, if (on) Ps.Mint else Coral)
+                drawPath(path, Color(0x66000000), style = Stroke(1.dp.toPx()))
+            }
+        }
     }
 }
 
@@ -738,7 +899,7 @@ private fun ClipRow(ed: EditorState, l: Layer, pps: Float, density: Float, rowH:
         val tolSec = 10f / pps
         Box(
             Modifier.offset(x = (l.start * pps).dp).width(w).fillMaxHeight().padding(vertical = 3.dp)
-                .clip(RoundedCornerShape(7.dp)).background(if (l.missing) Color(0x66FF8A8A) else color)
+                .clip(RoundedCornerShape(7.dp)).background(if (l.missing) Color(0x66FF8A8A) else if (l.hidden) color.copy(alpha = 0.35f) else color)
                 .then(if (sel) Modifier.border(3.dp, Color.White, RoundedCornerShape(7.dp)) else Modifier)
                 ,
             contentAlignment = Alignment.CenterStart,

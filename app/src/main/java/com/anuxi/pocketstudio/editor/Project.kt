@@ -56,6 +56,7 @@ class Layer(
     var scaleLinked = true
     var parentId: String? = null
     var mute = false
+    var hidden = false
     var blur = false
     var interp = Interp.Flow
     var tile: TileFx? = null
@@ -215,7 +216,7 @@ fun Project.toJson(): JSONObject = JSONObject().apply {
                 l.tracks().forEach { (n, t) -> put(n, t.toJson()) }
                 put("scaleLinked", l.scaleLinked)
                 put("parent", l.parentId ?: JSONObject.NULL)
-                put("mute", l.mute); put("blur", l.blur); put("interp", l.interp.name)
+                put("mute", l.mute); put("hidden", l.hidden); put("blur", l.blur); put("interp", l.interp.name)
                 l.tile?.let { f ->
                     put("tile", JSONObject().apply {
                         put("enabled", f.enabled)
@@ -264,7 +265,7 @@ fun projectFromJson(o: JSONObject): Project {
         l.tracks().forEach { (n, t) -> t.fromJson(j.optJSONObject(n)) }
         l.scaleLinked = j.optBoolean("scaleLinked", true)
         l.parentId = if (j.isNull("parent")) null else j.optString("parent")
-        l.mute = j.optBoolean("mute", false); l.blur = j.optBoolean("blur", false)
+        l.hidden = j.optBoolean("hidden", false); l.mute = j.optBoolean("mute", false); l.blur = j.optBoolean("blur", false)
         l.interp = runCatching { Interp.valueOf(j.optString("interp", "Flow")) }.getOrDefault(Interp.Flow)
         j.optJSONObject("tile")?.let { t ->
             val f = TileFx()
