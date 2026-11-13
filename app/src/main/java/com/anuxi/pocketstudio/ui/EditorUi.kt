@@ -32,6 +32,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.anuxi.pocketstudio.data.tr
 import com.anuxi.pocketstudio.editor.Curve
+import com.anuxi.pocketstudio.editor.Track
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
@@ -354,6 +358,7 @@ fun CurveEditor(
     speedView: Boolean,
     onChange: (Curve) -> Unit,
     modifier: Modifier = Modifier,
+    markers: List<Triple<Float, Color, String>> = emptyList(),
 ) {
     val current by rememberUpdatedState(curve)
     val latest by rememberUpdatedState(onChange)
@@ -440,6 +445,17 @@ fun CurveEditor(
             drawCircle(Color(0xFFFFC46B), 9.dp.toPx(), Offset(px(curve.x1), py(0f)))
             drawCircle(Color(0xFFFFC46B), 9.dp.toPx(), Offset(px(curve.x2), py(0f)))
         }
+        // marcadores entre los dos keyframes
+        val mp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textSize = 10.sp.toPx() }
+        markers.forEach { (fx, col, name) ->
+            val x = px(fx.coerceIn(0f, 1f))
+            drawLine(col.copy(alpha = 0.85f), Offset(x, py(1f)), Offset(x, py(0f)), 1.5.dp.toPx(),
+                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 8f)))
+            if (name.isNotBlank()) {
+                mp.color = col.toArgb()
+                drawContext.canvas.nativeCanvas.drawText(name, x + 3.dp.toPx(), py(1f) + 10.dp.toPx(), mp)
+            }
+        }
         // rombos de los extremos
         fun diamond(cx: Float, cy: Float, c: Color) {
             val r = 8.dp.toPx()
@@ -495,5 +511,33 @@ fun NumField(
             modifier = Modifier.weight(1f).onFocusChanged { if (!it.isFocused) onDone() },
         )
         Text("px", color = Ps.Muted2, fontSize = 11.sp)
+    }
+}
+
+
+/** Tipo de curva del tramo que sale de un keyframe: 0 lineal, 1 curva, 2 mantener. El ultimo usa el anterior. */
+fun keyKind(t: Track, i: Int): Int {
+    if (t.keys.isEmpty()) return 0
+    val c = t.keys[if (i >= t.keys.size - 1 && t.keys.size > 1) i - 1 else i].curve
+    return if (c.hold) 2 else if (c == Curve.Linear) 0 else 1
+}
+
+/** Dibuja un keyframe: rombo (lineal), circulo (curva) o cuadrado (mantener). */
+fun DrawScope.drawKeyShape(kind: Int, cx: Float, cy: Float, r: Float, color: Color, outline: Color? = Color(0x66000000)) {
+    when (kind) {
+        1 -> {
+            drawCircle(color, r * 0.92f, Offset(cx, cy))
+            if (outline != null) drawCircle(outline, r * 0.92f, Offset(cx, cy), style = Stroke(1.dp.toPx()))
+        }
+        2 -> {
+            val q = r * 0.85f
+            drawRect(color, Offset(cx - q, cy - q), androidx.compose.ui.geometry.Size(q * 2, q * 2))
+            if (outline != null) drawRect(outline, Offset(cx - q, cy - q), androidx.compose.ui.geometry.Size(q * 2, q * 2), style = Stroke(1.dp.toPx()))
+        }
+        else -> {
+            val p = Path().apply { moveTo(cx, cy - r); lineTo(cx + r, cy); lineTo(cx, cy + r); lineTo(cx - r, cy); close() }
+            drawPath(p, color)
+            if (outline != null) drawPath(p, outline, style = Stroke(1.dp.toPx()))
+        }
     }
 }

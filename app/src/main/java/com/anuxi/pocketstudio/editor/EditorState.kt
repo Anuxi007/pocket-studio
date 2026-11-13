@@ -94,6 +94,90 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
         private set
     var selected by mutableStateOf<String?>(null)
     var tab by mutableIntStateOf(0)
+
+    /** Barra inferior de la capa abierta. */
+    var barOpen by mutableStateOf(false)
+
+    /** Que panel muestra la barra: 0 principal, 1 transformar. */
+    var barPanel by mutableIntStateOf(0)
+
+    /** Propiedad de transformar elegida en el panel (anchor, pos, scale, rot, opacity). */
+    var transformProp by mutableIntStateOf(1)
+
+    /** Keyframe elegido en un carril: capa, propiedad y tiempo. */
+    var selKey by mutableStateOf<Triple<String, String, Float>?>(null)
+
+    fun select(id: String?) {
+        if (id != selected) { selKey = null; barPanel = 0 }
+        selected = id
+        barOpen = id != null
+    }
+
+    fun closeBar() { barOpen = false; selKey = null; barPanel = 0 }
+
+    // ----------------------------------------------------------- deshacer / rehacer
+    private val undoStack = ArrayList<String>()
+    private val redoStack = ArrayList<String>()
+    private var baseline: String? = null
+    private var commitJob: Job? = null
+    var canUndo by mutableStateOf(false)
+        private set
+    var canRedo by mutableStateOf(false)
+        private set
+
+    private fun snapshot(): String? {
+        val p = project ?: return null
+        return p.toJson().also { it.remove("modified") }.toString()
+    }
+
+    private fun resetHistory() {
+        undoStack.clear(); redoStack.clear()
+        baseline = snapshot()
+        canUndo = false; canRedo = false
+    }
+
+    private fun commitHistory() {
+        commitJob?.cancel()
+        val s = snapshot() ?: return
+        val b = baseline
+        if (b == null) { baseline = s; return }
+        if (s != b) {
+            undoStack.add(b)
+            if (undoStack.size > 60) undoStack.removeAt(0)
+            baseline = s
+            redoStack.clear()
+            canUndo = true; canRedo = false
+        }
+    }
+
+    private fun restore(json: String) {
+        val old = project ?: return
+        val np = projectFromJson(org.json.JSONObject(json))
+        np.layers.forEach { nl -> old.layer(nl.id)?.let { nl.missing = it.missing } }
+        np.modified = old.modified
+        project = np
+        if (selected != null && np.layer(selected) == null) { selected = null; barOpen = false }
+        selKey = null
+        touch(frames = true)
+    }
+
+    fun undo() {
+        commitHistory()
+        val prev = undoStack.removeLastOrNull() ?: return
+        baseline?.let { redoStack.add(it) }
+        baseline = prev
+        canUndo = undoStack.isNotEmpty(); canRedo = true
+        restore(prev)
+    }
+
+    fun redo() {
+        commitHistory()
+        val next = redoStack.removeLastOrNull() ?: return
+        baseline?.let { undoStack.add(it) }
+        baseline = next
+        canUndo = true; canRedo = redoStack.isNotEmpty()
+        restore(next)
+    }
     var pxPerSec by mutableFloatStateOf(48f)
     var busy by mutableStateOf<String?>(null)
 
@@ -107,8 +191,10 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
         val p = ProjectStore.load(app, id) ?: return
         project = p
         playhead = 0f
-        selected = p.layers.lastOrNull()?.id
+        selected = null
+        barOpen = false; barPanel = 0; selKey = null
         tab = 0
+        resetHistory()
         bump()
         requestFrames(false)
     }
@@ -129,6 +215,8 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
     fun touch(frames: Boolean = false) {
         bump()
         scheduleSave()
+        commitJob?.cancel()
+        commitJob = scope.launch { delay(400); commitHistory() }
         if (frames) requestFrames(false)
     }
 
@@ -206,11 +294,27 @@ class EditorState(private val app: Application, private val scope: CoroutineScop
         touch()
     }
 
+    /** Crea un nulo en el anclaje de la capa, justo encima, y la emparenta sin que salte. */
+    fun addNullFor(id: String) {
+        val p = project ?: return
+        val src = p.layer(id) ?: return
+        val (wx, wy) = p.worldMatrix(src, playhead).apply(src.anchorX.at(playhead), src.anchorY.at(playhead))
+        val n = Layer(newId(), LayerKind.Null, "Nulo ${p.layers.count { it.kind == LayerKind.Null } + 1}")
+        n.srcW = 100; n.srcH = 100
+        n.start = src.start; n.length = src.length
+        n.anchorX.base = 50f; n.anchorY.base = 50f
+        n.posX.base = wx; n.posY.base = wy
+        p.layers.add(p.layers.indexOf(src) + 1, n)
+        setParent(src, n.id)
+        selected = src.id
+        touch()
+    }
+
     fun deleteLayer(id: String) {
         val p = project ?: return
         p.layers.forEach { if (it.parentId == id) it.parentId = null }
         p.layers.removeAll { it.id == id }
-        if (selected == id) selected = p.layers.lastOrNull()?.id
+        if (selected == id) { selected = null; closeBar() }
         touch()
     }
 

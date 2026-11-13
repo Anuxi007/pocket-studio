@@ -118,7 +118,7 @@ fun EditorScreen(vm: MainViewModel) {
         relinkLayer.value = null
     }
 
-    var frac by remember(ed.tab) { mutableFloatStateOf(if (ed.tab == 0) 0.40f else 0.30f) }
+    var frac by remember { mutableFloatStateOf(0.38f) }
     var totalH by remember { mutableIntStateOf(1) }
 
     Column(
@@ -131,10 +131,13 @@ fun EditorScreen(vm: MainViewModel) {
                 vm.leaveEditor()
             }
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f).clickable { showRename = true }) {
-                Text(p.name, color = Ps.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(tr("Guardado · toca para renombrar", "Saved · tap to rename"), color = Ps.Muted2, fontSize = 10.sp)
+            Box(Modifier.weight(1f).clickable { showRename = true }) {
+                Text(p.name, color = Ps.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            HistoryButton(false, ed.canUndo, tr("Deshacer", "Undo")) { ed.undo() }
+            Spacer(Modifier.width(4.dp))
+            HistoryButton(true, ed.canRedo, tr("Rehacer", "Redo")) { ed.redo() }
+            Spacer(Modifier.width(4.dp))
             RoundIconButton(Icons.Filled.Settings, tr("Ajustes del proyecto", "Project settings")) { showSettings = true }
             Spacer(Modifier.width(8.dp))
             Box(
@@ -157,35 +160,19 @@ fun EditorScreen(vm: MainViewModel) {
 
         // ------------------------------------------------------------ contenido
         Box(Modifier.fillMaxWidth().weight(1f - frac)) {
-            when (ed.tab) {
-                0 -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) {
-                        Timeline(
-                            ed,
-                            onMarker = { markerSheet = it },
-                            onResize = { dy -> frac = (frac + dy / totalH).coerceIn(0.18f, 0.62f) },
-                            onRelink = { relinkLayer.value = it; pickRelink.launch(arrayOf("video/*")) },
-                        )
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DashedButton("+ " + tr("Multimedia", "Media"), Ps.Muted, Modifier.weight(1f)) { pickVideo.launch(arrayOf("video/*")) }
-                        DashedButton("+ " + tr("Nulo", "Null"), Ps.Amber, Modifier.weight(1f)) { ed.addNull() }
-                        DashedButton("⚑ " + tr("Marcador", "Marker"), Violet, Modifier.weight(1f)) {
-                            val m = ed.addMarker()
-                            if (m != null) markerSheet = m.id
-                        }
-                    }
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f)) {
+                    Timeline(
+                        ed,
+                        onMarker = { markerSheet = it },
+                        onResize = { dy -> frac = (frac + dy / totalH).coerceIn(0.18f, 0.62f) },
+                        onRelink = { relinkLayer.value = it; pickRelink.launch(arrayOf("video/*")) },
+                        onPickMedia = { pickVideo.launch(arrayOf("video/*")) },
+                    )
                 }
-                1 -> PropertiesPanel(ed, openDial = { dial = it }, openSheet = { sheet = it })
-                else -> KeyframesPanel(ed, openSheet = { sheet = it })
+                LayerBar(ed, openDial = { dial = it }, openSheet = { sheet = it })
             }
         }
-
-        // --------------------------------------------------------------- pestañas
-        SegControl(
-            listOf(tr("Capas", "Layers"), tr("Propiedades", "Properties"), "Keyframes"),
-            ed.tab,
-        ) { ed.tab = it }
     }
 
     // ----------------------------------------------------------------- hojas
@@ -227,12 +214,27 @@ fun EditorScreen(vm: MainViewModel) {
 }
 
 @Composable
-private fun DashedButton(text: String, color: Color, modifier: Modifier, onClick: () -> Unit) {
+private fun HistoryButton(redo: Boolean, enabled: Boolean, desc: String, onClick: () -> Unit) {
+    val col = if (enabled) Ps.Text else Ps.Muted2.copy(alpha = 0.5f)
     Box(
-        modifier.height(36.dp).clip(RoundedCornerShape(18.dp))
-            .border(1.5.dp, color.copy(alpha = 0.5f), RoundedCornerShape(18.dp)).pressable(onClick = onClick),
+        Modifier.size(34.dp).clip(CircleShape).background(Color(0x14FFFFFF)).pressable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(text, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
+    ) {
+        Canvas(Modifier.size(18.dp)) {
+            val w = size.minDimension
+            fun x(v: Float) = if (redo) w - v else v
+            val st = Stroke(width = w * 0.11f, cap = StrokeCap.Round)
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(x(w * 0.28f), w * 0.38f)
+                cubicTo(x(w * 0.62f), w * 0.22f, x(w * 0.94f), w * 0.42f, x(w * 0.86f), w * 0.72f)
+            }
+            drawPath(path, col, style = st)
+            val head = androidx.compose.ui.graphics.Path().apply {
+                moveTo(x(w * 0.14f), w * 0.46f); lineTo(x(w * 0.34f), w * 0.22f); lineTo(x(w * 0.44f), w * 0.54f); close()
+            }
+            drawPath(head, col)
+        }
+    }
 }
 
 @Composable
@@ -408,11 +410,30 @@ private fun TransportRow(ed: EditorState, onAddMarker: () -> Unit) {
         Box(Modifier.size(36.dp).clip(CircleShape).background(Violet.copy(alpha = 0.18f)).pressable(onClick = onAddMarker), contentAlignment = Alignment.Center) {
             FlagShape(Violet, 14.dp)
         }
+        Box(
+            Modifier.size(36.dp).clip(CircleShape)
+                .background(if (ed.snapEnabled) Ps.Mint.copy(alpha = 0.22f) else Color(0x14FFFFFF))
+                .pressable { ed.snapEnabled = !ed.snapEnabled },
+            contentAlignment = Alignment.Center,
+        ) { MagnetIcon(if (ed.snapEnabled) Ps.Mint else Ps.Muted2) }
         Text(
             buildTime(ed.playhead, p.duration),
             color = Ps.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f),
             textAlign = androidx.compose.ui.text.style.TextAlign.End,
         )
+    }
+}
+
+@Composable
+private fun MagnetIcon(col: Color) {
+    Canvas(Modifier.size(18.dp)) {
+        val w = size.minDimension
+        val st = Stroke(width = w * 0.2f, cap = StrokeCap.Butt)
+        drawArc(col, 180f, 180f, false, Offset(w * 0.18f, w * 0.14f), Size(w * 0.64f, w * 0.64f), style = st)
+        drawLine(col, Offset(w * 0.18f, w * 0.46f), Offset(w * 0.18f, w * 0.78f), w * 0.2f)
+        drawLine(col, Offset(w * 0.82f, w * 0.46f), Offset(w * 0.82f, w * 0.78f), w * 0.2f)
+        drawLine(Color.White, Offset(w * 0.08f, w * 0.9f), Offset(w * 0.28f, w * 0.9f), w * 0.12f)
+        drawLine(Color.White, Offset(w * 0.72f, w * 0.9f), Offset(w * 0.92f, w * 0.9f), w * 0.12f)
     }
 }
 
@@ -426,9 +447,17 @@ private fun Timeline(
     onMarker: (String) -> Unit,
     onResize: (Float) -> Unit,
     onRelink: (String) -> Unit,
+    onPickMedia: () -> Unit,
 ) {
     val p = ed.project ?: return
     val rev by ed.revFlow.collectAsState()
+    val selKey = ed.selKey
+    var labelsHidden by remember { mutableStateOf(false) }
+    var addOpen by remember { mutableStateOf(false) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("ps_ui", android.content.Context.MODE_PRIVATE) }
+    var tipSeen by remember { mutableStateOf(prefs.getBoolean("kf_tip", false)) }
+    val anyKeys = p.layers.any { ed.animatedTracks(it).isNotEmpty() }
     val density = LocalDensity.current.density
     val scroll = rememberScrollState()
     val vScroll = rememberScrollState()
@@ -473,17 +502,36 @@ private fun Timeline(
             ) {
                 Box(Modifier.size(44.dp, 5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x59FFFFFF)))
             }
-            val canSplit = ed.canSplit(ed.selected)
-            Box(
-                Modifier.height(26.dp).clip(RoundedCornerShape(13.dp))
-                    .background(if (canSplit) SkyBlue.copy(alpha = 0.22f) else Color(0x0DFFFFFF))
-                    .pressable { if (canSplit) ed.splitLayer(ed.selected ?: "") }.padding(horizontal = 10.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "✂ " + tr("Dividir", "Split"),
-                    color = if (canSplit) SkyBlue else Ps.Muted2, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                )
+            Box {
+                Box(
+                    Modifier.height(26.dp).clip(RoundedCornerShape(13.dp)).background(Ps.Mint)
+                        .pressable { addOpen = true }.padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("+ " + tr("Agregar", "Add"), color = Ps.OnMint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                if (addOpen) {
+                    androidx.compose.ui.window.Popup(
+                        alignment = Alignment.TopEnd,
+                        offset = androidx.compose.ui.unit.IntOffset(0, (30 * density).toInt()),
+                        onDismissRequest = { addOpen = false },
+                    ) {
+                        Column(
+                            Modifier.width(190.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF2A2C4A))
+                                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp)).padding(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { addOpen = false; onPickMedia() }.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) { VideoIcon(true); Text(tr("Multimedia", "Media"), color = Ps.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { addOpen = false; ed.addNull() }.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) { NullIcon(); Text(tr("Nulo", "Null"), color = Ps.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+                        }
+                    }
+                }
             }
             Box(
                 Modifier.height(26.dp).clip(RoundedCornerShape(13.dp)).background(Ps.Mint.copy(alpha = 0.15f))
@@ -508,7 +556,6 @@ private fun Timeline(
         Box(
             Modifier.fillMaxWidth().weight(1f).pointerInput(Unit) {
                 val slop = viewConfiguration.touchSlop
-                val labelPx = labelW.toPx()
                 val rulerPx = rulerH.toPx()
                 val rowPx = rowH.toPx()
                 val gapPx = 5.dp.toPx()
@@ -516,6 +563,7 @@ private fun Timeline(
                 val laneGapPx = laneGap.toPx()
                 val edgeOut = 8.dp.toPx()
                 awaitEachGesture {
+                    val labelPx = if (labelsHidden) 0f else labelW.toPx()
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val proj = ed.project ?: return@awaitEachGesture
                     val yC = down.position.y + vScroll.value
@@ -554,6 +602,8 @@ private fun Timeline(
                         val hit = tr?.keys?.indices?.minByOrNull { abs(tr.keys[it].t * pxs - cx) }
                         if (tr != null && hit != null && abs(tr.keys[hit].t * pxs - cx) <= 18.dp.toPx()) {
                             down.consume()
+                            ed.select(ll.id)
+                            ed.selKey = Triple(ll.id, lp, tr.keys[hit].t)
                             var idx: Int = hit
                             var raw = tr.keys[hit].t
                             var moved = false
@@ -568,6 +618,7 @@ private fun Timeline(
                                 if (moved && dx != 0f) {
                                     raw += dx / density / ed.pxPerSec
                                     idx = ed.moveKey(ll, lp, idx, raw, tol)
+                                    tr.keys.getOrNull(idx)?.let { ed.selKey = Triple(ll.id, lp, it.t) }
                                 }
                                 ch.consume()
                             }
@@ -618,12 +669,12 @@ private fun Timeline(
                         out
                     }
                     when (phase) {
-                        1 -> { if (layer != null && onBody) ed.selected = layer.id; return@awaitEachGesture }
+                        1 -> { if (layer != null && onBody) ed.select(layer.id) else ed.select(null); return@awaitEachGesture }
                         null -> {
                             // mantener apretado: mover el clip
                             val l = layer ?: return@awaitEachGesture
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            ed.selected = l.id
+                            ed.select(l.id)
                             var raw = l.start
                             while (true) {
                                 val ev = awaitPointerEvent()
@@ -658,8 +709,12 @@ private fun Timeline(
         ) {
         Row(Modifier.fillMaxSize().verticalScroll(vScroll, enabled = false)) {
             // columna fija con los nombres de las capas
-            Column(Modifier.width(labelW), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Spacer(Modifier.height(rulerH))
+            if (!labelsHidden) Column(Modifier.width(labelW), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Box(
+                    Modifier.fillMaxWidth().height(rulerH).clip(RoundedCornerShape(8.dp)).background(Color(0x0DFFFFFF))
+                        .clickable { labelsHidden = true },
+                    contentAlignment = Alignment.Center,
+                ) { Text("‹ " + tr("Ocultar", "Hide"), color = Ps.Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
                 p.layers.asReversed().forEach { l ->
                     Column(verticalArrangement = Arrangement.spacedBy(laneGap)) {
                         LayerHeader(ed, l, rowH, onRelink, rev)
@@ -676,7 +731,7 @@ private fun Timeline(
                         p.layers.asReversed().forEach { l ->
                             Column(verticalArrangement = Arrangement.spacedBy(laneGap)) {
                                 ClipRow(ed, l, pps, density, rowH, rev)
-                                if (l.id in ed.expanded) ed.animatedTracks(l).forEach { (n, tr) -> LaneRow(ed, tr, pps, density, laneH, rev) }
+                                if (l.id in ed.expanded) ed.animatedTracks(l).forEach { (n, tr) -> LaneRow(ed, tr, pps, density, laneH, rev, if (selKey != null && selKey.first == l.id && selKey.second == n) selKey.third else null) }
                             }
                         }
                     }
@@ -691,6 +746,32 @@ private fun Timeline(
                         drawLine(Coral, Offset(px, 0f), Offset(px, size.height), 2.dp.toPx())
                     }
                 }
+            }
+        }
+        if (labelsHidden) {
+            Box(
+                Modifier.align(Alignment.TopStart).padding(top = 2.dp).size(22.dp, 22.dp).clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xCC2A2C4A)).clickable { labelsHidden = false },
+                contentAlignment = Alignment.Center,
+            ) { Text("›", color = Ps.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+        }
+        if (anyKeys && !tipSeen && !labelsHidden) {
+            Column(
+                Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 30.dp).width(labelW + 120.dp)
+                    .clip(RoundedCornerShape(12.dp)).background(Color(0xF22A2C4A))
+                    .border(1.dp, Ps.Mint.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    tr("Aquí están tus keyframes. Toca la flecha ▾ de una capa para verlos y moverlos en la línea de tiempo.",
+                        "Your keyframes are here. Tap a layer's ▾ arrow to see them and move them on the timeline."),
+                    color = Ps.Text, fontSize = 12.sp, lineHeight = 16.sp,
+                )
+                Box(
+                    Modifier.align(Alignment.End).height(28.dp).clip(RoundedCornerShape(14.dp)).background(Ps.Mint)
+                        .clickable { tipSeen = true; prefs.edit().putBoolean("kf_tip", true).apply() }.padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text(tr("Entendido", "Got it"), color = Ps.OnMint, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
             }
         }
         }
@@ -714,13 +795,13 @@ private fun LayerHeader(ed: EditorState, l: Layer, rowH: Dp, onRelink: (String) 
         Modifier.fillMaxWidth().height(rowH).clip(RoundedCornerShape(12.dp))
             .background(if (sel) SkyBlue.copy(alpha = 0.30f) else Color(0x0AFFFFFF))
             .then(if (sel) Modifier.border(1.5.dp, SkyBlue, RoundedCornerShape(12.dp)) else Modifier)
-            .clickable { ed.selected = l.id },
+            .clickable { ed.select(l.id) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // video: encender / apagar la imagen
         Box(
             Modifier.weight(1f).fillMaxHeight().clickable {
-                ed.selected = l.id
+                ed.select(l.id)
                 if (l.missing) onRelink(l.id) else if (l.kind == LayerKind.Video) ed.toggleHidden(l.id)
             },
             contentAlignment = Alignment.Center,
@@ -733,12 +814,12 @@ private fun LayerHeader(ed: EditorState, l: Layer, rowH: Dp, onRelink: (String) 
         }
         // audio: silenciar / activar
         Box(
-            Modifier.weight(1f).fillMaxHeight().clickable(enabled = l.kind == LayerKind.Video) { ed.selected = l.id; ed.toggleMute(l.id) },
+            Modifier.weight(1f).fillMaxHeight().clickable(enabled = l.kind == LayerKind.Video) { ed.select(l.id); ed.toggleMute(l.id) },
             contentAlignment = Alignment.Center,
         ) { if (l.kind == LayerKind.Video) AudioIcon(!l.mute) }
         // flecha: mostrar las propiedades con keyframes
         Box(
-            Modifier.weight(1f).fillMaxHeight().clickable { ed.selected = l.id; ed.toggleExpanded(l.id) },
+            Modifier.weight(1f).fillMaxHeight().clickable { ed.select(l.id); ed.toggleExpanded(l.id) },
             contentAlignment = Alignment.Center,
         ) {
             PsIcon(
@@ -746,6 +827,11 @@ private fun LayerHeader(ed: EditorState, l: Layer, rowH: Dp, onRelink: (String) 
                 if (hasKeys) Ps.Text else Ps.Muted2, 22.dp,
                 tr("Propiedades con keyframes", "Keyframed properties"),
             )
+            val n = ed.animatedTracks(l).size
+            if (n > 0) Box(
+                Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 2.dp).size(15.dp).clip(CircleShape).background(Coral),
+                contentAlignment = Alignment.Center,
+            ) { Text("$n", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -807,7 +893,7 @@ private fun LaneLabel(prop: String, h: Dp) {
 
 @Composable
 @Suppress("UNUSED_PARAMETER")
-private fun LaneRow(ed: EditorState, tr: Track, pps: Float, density: Float, h: Dp, rev: Int) {
+private fun LaneRow(ed: EditorState, tr: Track, pps: Float, density: Float, h: Dp, rev: Int, selT: Float?) {
     Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(8.dp)).background(Color(0x08FFFFFF))) {
         Canvas(Modifier.matchParentSize()) {
             val pxs = pps * density
@@ -817,14 +903,12 @@ private fun LaneRow(ed: EditorState, tr: Track, pps: Float, density: Float, h: D
             }
             val e = ed.eps()
             val r = 6.5.dp.toPx()
-            tr.keys.forEach { k ->
+            tr.keys.forEachIndexed { i, k ->
                 val x = k.t * pxs
                 val on = abs(k.t - ed.playhead) <= e
-                val path = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(x, cy - r); lineTo(x + r, cy); lineTo(x, cy + r); lineTo(x - r, cy); close()
-                }
-                drawPath(path, if (on) Ps.Mint else Coral)
-                drawPath(path, Color(0x66000000), style = Stroke(1.dp.toPx()))
+                val sel = selT != null && abs(k.t - selT) <= e
+                if (sel) drawCircle(Color.White, r + 4.dp.toPx(), Offset(x, cy), style = Stroke(2.dp.toPx()))
+                drawKeyShape(keyKind(tr, i), x, cy, r, if (on) Ps.Mint else Coral)
             }
         }
     }

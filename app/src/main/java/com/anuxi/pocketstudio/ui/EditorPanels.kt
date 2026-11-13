@@ -42,7 +42,7 @@ sealed interface EditorSheet {
     data class MenuFor(val layerId: String) : EditorSheet
 }
 
-private class PropDef(
+class PropDef(
     val label: String, val prop: String, val short: String,
     val unit: String = "", val decimals: Int = 0, val lo: Float? = null, val hi: Float? = null,
 )
@@ -173,7 +173,7 @@ private fun LinkRow(title: String, value: String, color: Color, onClick: () -> U
 }
 
 @Composable
-private fun PropRow(
+fun PropRow(
     ed: EditorState,
     l: Layer,
     label: String,
@@ -363,7 +363,7 @@ fun EditorSheets(
         }
         is EditorSheet.TileFor -> TileSheet(ed, p.layer(s.layerId) ?: return, openDial, openSheet, onDismiss)
         is EditorSheet.SpeedFor -> SpeedSheet(ed, p.layer(s.layerId) ?: return, openSheet, onDismiss)
-        is EditorSheet.CurveFor -> CurveSheet(ed, p.layer(s.layerId) ?: return, s, onDismiss)
+        is EditorSheet.CurveFor -> CurveSheet(ed, p.layer(s.layerId) ?: return, s, openDial, onDismiss)
     }
 }
 
@@ -379,11 +379,12 @@ private fun ParentOption(label: String, selected: Boolean, onClick: () -> Unit) 
 // ---------------------------------------------------------------- curva
 
 @Composable
-private fun CurveSheet(ed: EditorState, l: Layer, s: EditorSheet.CurveFor, onDismiss: () -> Unit) {
+private fun CurveSheet(ed: EditorState, l: Layer, s: EditorSheet.CurveFor, openDial: (DialSpec) -> Unit, onDismiss: () -> Unit) {
     ed.revFlow.collectAsState().value
     val t = l.track(s.prop) ?: return
     var withNext by remember { mutableStateOf(true) }
     var speedView by remember { mutableStateOf(false) }
+    var big by remember { mutableStateOf(false) }
     val seg = if (withNext) s.keyIndex else s.keyIndex - 1
     if (seg < 0 || seg >= t.keys.size - 1) {
         PsSheet(onDismiss) {
@@ -401,18 +402,45 @@ private fun CurveSheet(ed: EditorState, l: Layer, s: EditorSheet.CurveFor, onDis
         SheetTitle(tr("Curva · ", "Curve · ") + propName(s.prop), "${fmtTime(k.t)} → ${fmtTime(next.t)}")
         SegControl(listOf(tr("Con el anterior", "With previous"), tr("Con el siguiente", "With next")), if (withNext) 1 else 0, SkyBlue) { withNext = it == 1 }
         SegControl(listOf(tr("Gráfico de valor", "Value graph"), tr("Gráfico de velocidad", "Speed graph")), if (speedView) 1 else 0, Violet) { speedView = it == 1 }
-        CurveEditor(k.curve, speedView, { set(it) }, Modifier.fillMaxWidth().height(210.dp))
+        val mk = ed.project?.markers.orEmpty()
+            .filter { it.time > k.t + 1e-3f && it.time < next.t - 1e-3f }
+            .map { Triple((it.time - k.t) / (next.t - k.t), Color(it.color), it.name) }
+        Box(Modifier.fillMaxWidth()) {
+            CurveEditor(k.curve, speedView, { set(it) }, Modifier.fillMaxWidth().height(if (big) 400.dp else 210.dp), mk)
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(6.dp).size(32.dp).clip(CircleShape)
+                    .background(Color(0x66000000)).clickable { big = !big },
+                contentAlignment = Alignment.Center,
+            ) { Text(if (big) "⤡" else "⤢", color = Ps.Text, fontSize = 16.sp) }
+        }
+        if (speedView) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(true, false).forEach { out ->
+                    val v = if (out) k.curve.x1 * 100f else (1f - k.curve.x2) * 100f
+                    val label = if (out) tr("Influencia de salida", "Out influence") else tr("Influencia de entrada", "In influence")
+                    Column(
+                        Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color(0x14FFFFFF))
+                            .clickable {
+                                openDial(DialSpec(label, propName(s.prop), v, "%", 1, 0f, 100f, { nv ->
+                                    val c = t.keys[seg].curve
+                                    t.keys[seg] = t.keys[seg].copy(curve = if (out) c.copy(x1 = nv / 100f, hold = false) else c.copy(x2 = 1f - nv / 100f, hold = false))
+                                    ed.touch()
+                                }))
+                            }.padding(10.dp),
+                    ) {
+                        Text(label, color = Ps.Muted2, fontSize = 10.sp)
+                        Text("%.1f%%".format(v), color = Ps.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
         Note(
-            if (speedView) tr("Arrastra los círculos para cambiar la influencia de cada extremo.", "Drag the circles to change each end's influence.")
+            if (speedView) tr("Arrastra los círculos o toca una influencia para escribirla.", "Drag the circles or tap an influence to type it.")
             else tr("Arrastra los círculos naranjas para cambiar la forma.", "Drag the orange circles to change the shape.")
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            val presets = listOf(
-                tr("Lineal", "Linear") to Curve.Linear, tr("Suave", "Smooth") to Curve.Smooth,
-                tr("Entrada", "Ease in") to Curve.EaseIn, tr("Salida", "Ease out") to Curve.EaseOut,
-                tr("Mantener", "Hold") to Curve.Hold,
-            )
-            presets.forEach { (n, c) -> PsChip(n, k.curve == c, Modifier.weight(1f), height = 32.dp) { set(c) } }
+            PsChip(tr("Lineal", "Linear"), k.curve == Curve.Linear, Modifier.weight(1f), height = 36.dp) { set(Curve.Linear) }
+            PsChip(tr("Suavizar", "Ease"), k.curve == Curve.Smooth, Modifier.weight(1f), height = 36.dp) { set(Curve.Smooth) }
         }
         SheetButtons(null, {}, tr("Listo", "Done"), onDismiss)
     }

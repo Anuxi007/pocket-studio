@@ -51,7 +51,7 @@ data class Curve(
     }
 }
 
-data class Key(val t: Float, val v: Float, val curve: Curve = Curve.Smooth)
+data class Key(val t: Float, val v: Float, val curve: Curve = Curve.Linear)
 
 /** Una propiedad animable: un valor fijo o una lista de keyframes. */
 class Track(var base: Float) {
