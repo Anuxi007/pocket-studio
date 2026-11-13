@@ -46,6 +46,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -896,7 +898,8 @@ private fun LaneLabel(prop: String, h: Dp) {
 private fun LaneRow(ed: EditorState, tr: Track, pps: Float, density: Float, h: Dp, rev: Int, selT: Float?) {
     Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(8.dp)).background(Color(0x08FFFFFF))) {
         Canvas(Modifier.matchParentSize()) {
-            val pxs = pps * density
+            @Suppress("UNUSED_EXPRESSION") ed.rev
+            val pxs = ed.pxPerSec * density
             val cy = size.height / 2f
             if (tr.keys.size > 1) {
                 drawLine(Color(0x40FFFFFF), Offset(tr.keys.first().t * pxs, cy), Offset(tr.keys.last().t * pxs, cy), 2.dp.toPx())
@@ -972,39 +975,42 @@ private fun Ruler(
 @Composable
 @Suppress("UNUSED_PARAMETER")
 private fun ClipRow(ed: EditorState, l: Layer, pps: Float, density: Float, rowH: Dp, rev: Int) {
-    val sel = ed.selected == l.id
-    val color = if (l.kind == LayerKind.Null) Color(0xD9FFC46B) else clipColor(l.id)
-    Box(
-        Modifier.fillMaxWidth().height(rowH).clip(RoundedCornerShape(12.dp))
-            .background(if (sel) SkyBlue.copy(alpha = 0.22f) else Color(0x0AFFFFFF))
-            .then(if (sel) Modifier.border(1.5.dp, SkyBlue, RoundedCornerShape(12.dp)) else Modifier),
-    ) {
-        val w = max(10f, l.length * pps).dp
-        val tolSec = 10f / pps
-        Box(
-            Modifier.offset(x = (l.start * pps).dp).width(w).fillMaxHeight().padding(vertical = 3.dp)
-                .clip(RoundedCornerShape(7.dp)).background(if (l.missing) Color(0x66FF8A8A) else if (l.hidden) color.copy(alpha = 0.35f) else color)
-                .then(if (sel) Modifier.border(3.dp, Color.White, RoundedCornerShape(7.dp)) else Modifier)
-                ,
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Text(
-                if (l.kind == LayerKind.Null) "" else l.name,
-                color = Ps.OnMint, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1,
-                modifier = Modifier.padding(horizontal = 14.dp),
-            )
+    val paint = remember {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD }
+    }
+    // Todo se dibuja en la fase de dibujo leyendo ed.rev: se actualiza en vivo aunque no haya recomposicion.
+    Canvas(Modifier.fillMaxWidth().height(rowH)) {
+        @Suppress("UNUSED_EXPRESSION") ed.rev
+        val pxs = ed.pxPerSec * density
+        val sel = ed.selected == l.id
+        val color = if (l.kind == LayerKind.Null) Color(0xD9FFC46B) else clipColor(l.id)
+        val rr = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx())
+        drawRoundRect(if (sel) SkyBlue.copy(alpha = 0.22f) else Color(0x0AFFFFFF), cornerRadius = rr)
+        if (sel) drawRoundRect(SkyBlue, cornerRadius = rr, style = Stroke(1.5.dp.toPx()))
+        val x = l.start * pxs
+        val w = max(10.dp.toPx(), l.length * pxs)
+        val top = 3.dp.toPx()
+        val h = size.height - top * 2
+        val br = androidx.compose.ui.geometry.CornerRadius(7.dp.toPx())
+        val fill = if (l.missing) Color(0x66FF8A8A) else if (l.hidden) color.copy(alpha = 0.35f) else color
+        drawRoundRect(fill, Offset(x, top), Size(w, h), br)
+        if (sel) drawRoundRect(Color.White, Offset(x, top), Size(w, h), br, style = Stroke(3.dp.toPx()))
+        clipRect(x, top, x + w, top + h) {
+            if (l.kind != LayerKind.Null) {
+                paint.color = Ps.OnMint.toArgb()
+                paint.textSize = 11.sp.toPx()
+                drawIntoCanvas { it.nativeCanvas.drawText(l.name, x + 14.dp.toPx(), size.height / 2f + 4.sp.toPx(), paint) }
+            }
             if (l.kind == LayerKind.Video && l.speed.animated) {
-                Text("⏱", fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 14.dp))
+                paint.textSize = 10.sp.toPx()
+                drawIntoCanvas { it.nativeCanvas.drawText("⏱", x + w - 26.dp.toPx(), size.height / 2f + 4.sp.toPx(), paint) }
             }
-            // manijas para recortar: solo se ven con el clip elegido (los gestos los maneja la linea de tiempo)
-            if (sel) {
-                Box(Modifier.align(Alignment.CenterStart).width(14.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(5.dp, 22.dp).clip(RoundedCornerShape(3.dp)).background(SkyBlue))
-                }
-                Box(Modifier.align(Alignment.CenterEnd).width(14.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(5.dp, 22.dp).clip(RoundedCornerShape(3.dp)).background(SkyBlue))
-                }
-            }
+        }
+        if (sel) {
+            val hw = 5.dp.toPx(); val hh = 22.dp.toPx()
+            val cy = size.height / 2f
+            drawRoundRect(SkyBlue, Offset(x + 4.5.dp.toPx(), cy - hh / 2), Size(hw, hh), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
+            drawRoundRect(SkyBlue, Offset(x + w - 4.5.dp.toPx() - hw, cy - hh / 2), Size(hw, hh), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
         }
     }
 }
