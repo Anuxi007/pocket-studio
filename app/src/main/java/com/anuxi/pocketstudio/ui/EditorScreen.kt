@@ -187,19 +187,7 @@ fun EditorScreen(vm: MainViewModel) {
         PrecisionDial(d.title, d.subtitle, d.value, d.unit, d.decimals, d.lo, d.hi, d.apply) { d.commit?.invoke(); dial = null }
     }
     sheet?.let { s -> EditorSheets(ed, s, openDial = { dial = it }, openSheet = { sheet = it }, onDismiss = { sheet = null }) }
-    if (showExport) {
-        PsSheet({ showExport = false }) {
-            SheetTitle(tr("Exportar", "Export"))
-            Text(
-                tr(
-                    "La exportación del video llega en la próxima versión. Tu proyecto ya se guarda solo, así que no pierdes nada.",
-                    "Video export arrives in the next version. Your project already saves automatically, so you won't lose anything.",
-                ),
-                color = Ps.Muted, fontSize = 13.sp, lineHeight = 19.sp,
-            )
-            SheetButtons(null, {}, tr("Entendido", "Got it"), { showExport = false })
-        }
-    }
+    if (showExport) ExportSheet(ed) { showExport = false }
     ed.busy?.let { b ->
         if (b != "importando") {
             PsSheet({ ed.busyClear() }) {

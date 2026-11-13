@@ -12,8 +12,8 @@ android {
         applicationId = "com.anuxi.pocketstudio"
         minSdk = 29
         targetSdk = 34
-        versionCode = 14
-        versionName = "0.0.8.1"
+        versionCode = 15
+        versionName = "0.0.9"
     }
 
     // Un APK por arquitectura para que pesen menos. Casi todos los celulares
